@@ -6,6 +6,10 @@
 
 ---
 
+> **API & Business Logic Rule — Non-negotiable:** Every endpoint, business rule, data model, seed value, and behavioral constraint must match `denisco_prototype.html` and `DENISCO_Architecture.md` exactly. Do not invent defaults — always check the prototype for the authoritative behavior (delivery fees, order number formats, booking ref formats, stock thresholds, consultation times, payment states, etc.).
+
+---
+
 ## 1. Project Scaffold
 
 - [ ] Create directory structure below
