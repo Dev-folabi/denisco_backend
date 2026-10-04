@@ -1,0 +1,9 @@
+# Binaries
+bin/
+
+# Secrets
+.env
+*.local
+
+# macOS noise
+.DS_Store

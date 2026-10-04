@@ -12,11 +12,11 @@
 
 ## 1. Project Scaffold
 
-- [ ] Create directory structure below
-- [ ] Initialize `go.mod`
-- [ ] Create `Makefile` with build/run/test targets
-- [ ] Create `.env.example`
-- [ ] Create `README.md`
+- [x] Create directory structure below
+- [x] Initialize `go.mod`
+- [x] Create `Makefile` with build/run/test targets
+- [x] Create `.env.example`
+- [x] Create `README.md`
 
 ```
 denisco_backend/
@@ -157,6 +157,7 @@ type RefreshToken struct {
 - [ ] `POST /api/v1/auth/logout` — Revoke refresh token (Cookie)
 - [ ] `POST /api/v1/auth/forgot-password` — Send password reset email (Public)
 - [ ] `POST /api/v1/auth/reset-password` — Reset password with token (Public)
+- [ ] `POST /api/v1/auth/change-password` — Change own password, requires current password (Authenticated)
 - [ ] `GET /api/v1/auth/me` — Get current user (Bearer)
 
 ### 3.3 JWT Strategy
