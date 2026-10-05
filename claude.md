@@ -70,7 +70,7 @@ Each module follows: `domain/` → `application/` → `infrastructure/` → `tra
 
 ### 2.1 Configuration (`internal/platform/config/`)
 - [ ] Load from environment variables
-- [ ] Required: `APP_PORT`, `MONGODB_URI`, `MONGODB_DATABASE`, `REDIS_URL`, `JWT_*`, `WEB_ORIGIN`, `ADMIN_ORIGIN`
+- [ ] Required: `API_PORT`, `MONGODB_URI`, `MONGODB_DATABASE`, `REDIS_URL`, `JWT_*`, `WEB_ORIGIN`, `ADMIN_ORIGIN`
 - [ ] Validate all required vars at startup; fail fast on missing config
 
 ### 2.2 MongoDB (`internal/platform/database/`)
