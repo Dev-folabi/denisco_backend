@@ -1,0 +1,180 @@
+# Deployment topology for the single 2-vCPU / 2 GB VPS.
+#
+# MongoDB is external (Atlas), so the VPS runs Caddy, the three Go processes,
+# Redis and the two Next.js applications. Memory limits keep the total near
+# 1.3 GB, leaving the operating system room to breathe.
+#
+# Only Caddy publishes ports. Everything else talks over the internal network,
+# so Redis and the application ports are unreachable from the internet.
+#
+# Images are built in CI and pulled here — compiling Next.js on a 2-core VPS
+# would starve the running site — but each service keeps its build context so
+# `docker compose build` still works on a workstation. See deployments/README.md.
+
+name: denisco
+
+x-logging: &logging
+  # Without a cap, JSON logs fill the disk on a small VPS.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:?set WEB_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+      admin:
+        condition: service_started
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  api:
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-api:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.api
+    env_file: ${ENV_FILE:-../.env}
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    expose:
+      - "4000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  worker:
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-worker:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.worker
+    env_file: ${ENV_FILE:-../.env}
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  outbox:
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-outbox:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.outbox-publisher
+    env_file: ${ENV_FILE:-../.env}
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  web:
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-web:${TAG:-latest}
+    build:
+      context: ../../denisco_web
+      args:
+        # Next.js inlines NEXT_PUBLIC_* at build time, so the public URLs are
+        # build arguments rather than runtime environment.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?set PUBLIC_API_URL}
+        NEXT_PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?set PUBLIC_WEB_URL}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+
+  admin:
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-admin:${TAG:-latest}
+    build:
+      context: ../../denisco_admin
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?set PUBLIC_API_URL}
+        NEXT_PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?set PUBLIC_WEB_URL}
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3001/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  redis:
+    image: redis:8-alpine
+    # Append-only persistence so queued jobs survive a restart; memory is
+    # bounded so Redis can never starve the application processes. The policy
+    # is noeviction: silently dropping a queued job is worse than refusing a
+    # write that the publisher will retry.
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:

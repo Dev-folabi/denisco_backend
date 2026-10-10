@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, vet and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Verify dependencies are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+  integration:
+    name: Integration and concurrency tests
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The suite exercises multi-document transactions, which need a replica
+      # set; a standalone mongod would skip the half of it that matters. A
+      # single-node set is enough and starts in seconds.
+      - name: Start MongoDB as a single-node replica set
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:8 \
+            --replSet rs0 --bind_ip_all
+
+          for _ in $(seq 1 60); do
+            if docker exec mongo mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          docker exec mongo mongosh --quiet --eval \
+            'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+
+          # Wait for the node to finish electing itself, or the first
+          # transaction fails with "not primary".
+          for _ in $(seq 1 60); do
+            if docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Integration tests
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017/?replicaSet=rs0
+          MONGODB_TEST_DATABASE: denisco_integration_test
+          REDIS_URL: redis://localhost:6379/0
+        run: go test -race -count=1 -timeout 20m ./tests/...
+
+  deployment:
+    name: Validate the deployment configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the Compose file
+        working-directory: deployments
+        run: |
+          cp .env.example .env
+          # The API's environment file lives outside the repository on the
+          # VPS, so point the check at a stub rather than loosening the
+          # production configuration to tolerate a missing one.
+          cp ../.env.example ci-api.env
+          # The frontend build contexts are sibling repositories, which this
+          # checkout does not include.
+          mkdir -p ../../denisco_web ../../denisco_admin
+          ENV_FILE="$PWD/ci-api.env" docker compose --env-file .env config >/dev/null
+          ENV_FILE="$PWD/ci-api.env" docker compose --env-file .env \
+            -f compose.yaml -f compose.local.yaml config >/dev/null
+
+      - name: Validate the Caddyfile
+        working-directory: deployments
+        run: |
+          docker run --rm \
+            --env WEB_DOMAIN=www.example.com \
+            --env ADMIN_DOMAIN=admin.example.com \
+            --env API_DOMAIN=api.example.com \
+            --env ACME_EMAIL=ops@example.com \
+            --volume "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Check the backup scripts
+        working-directory: deployments
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck backup.sh restore.sh
+          bash -n backup.sh restore.sh

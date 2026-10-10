@@ -1,0 +1,2024 @@
+openapi: 3.1.0
+
+info:
+  title: DENISCO Global Agriculture API
+  description: >
+    REST API for the DENISCO Global Agriculture customer website, e-commerce
+    platform, consultation booking system and administration dashboard.
+
+    This specification documents every implemented endpoint: the foundation,
+    authentication, catalogue, inventory, e-commerce, consultation booking,
+    background processing and administration phases.
+
+    All monetary amounts are integers in kobo, the naira's minor unit.
+    Timestamps are UTC; consultation dates are calendar dates in Africa/Lagos.
+  version: 0.8.0
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+  - url: https://api.denisco.com
+    description: Production
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes.
+  - name: Authentication
+    description: Registration, sessions, password management.
+  - name: Catalogue
+    description: Products and categories.
+  - name: Cart
+    description: The signed-in customer's basket.
+  - name: Orders
+    description: Checkout and order history.
+  - name: Payments
+    description: Paystack checkout, verification and webhooks.
+  - name: Consultations
+    description: Services, availability and bookings.
+  - name: Admin
+    description: Catalogue, stock, orders, transactions, consultations, customers and the audit trail.
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Confirms the process is running. Touches no dependencies.
+      security: []
+      responses:
+        "200":
+          description: The service is live.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: The service is live.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: >
+        Reports whether required dependencies are reachable. Returns 503 when
+        any dependency check fails.
+      security: []
+      responses:
+        "200":
+          description: The service is ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+        "503":
+          description: A dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a customer
+      description: >
+        Creates a customer account and opens a session. Administrative roles
+        are never grantable here.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/Session"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate a customer
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/Session"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/admin/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate an administrator
+      description: >
+        Identical to customer login, but additionally requires the `admin` or
+        `super_admin` role.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/Session"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Rotate the session
+      description: >
+        Exchanges the refresh cookie for a new access token and a rotated
+        refresh cookie. Presenting an already-used token revokes the whole
+        token family. Requires an approved `Origin` (CSRF protection).
+      security:
+        - refreshCookie: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Session"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke the session
+      description: Revokes the refresh-token family and clears the cookie.
+      security:
+        - refreshCookie: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request a password reset
+      description: >
+        Always responds identically whether or not the address is registered,
+        so the endpoint cannot be used to discover accounts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset a password
+      description: >
+        Redeems a single-use reset token and revokes every existing session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 72
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/change-password:
+    post:
+      tags: [Authentication]
+      summary: Change your own password
+      description: >
+        Requires the current password and revokes every existing session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 72
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "401":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Retrieve the authenticated profile
+      responses:
+        "200":
+          description: The profile was retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/products:
+    get:
+      tags: [Catalogue]
+      summary: List products
+      description: >
+        Returns listed products only. `stock` is the sellable quantity: units
+        already reserved for unpaid orders are not offered twice.
+      security: []
+      parameters:
+        - { in: query, name: category, schema: { type: string }, description: "Category slug, e.g. poultry" }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: featured, schema: { type: boolean } }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [featured, price-asc, price-desc, name, newest]
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: The products were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Product" }
+
+  /api/v1/products/{id}:
+    get:
+      tags: [Catalogue]
+      summary: Retrieve a product by id
+      security: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/products/slug/{slug}:
+    get:
+      tags: [Catalogue]
+      summary: Retrieve a product by slug
+      security: []
+      parameters:
+        - { in: path, name: slug, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/products/slug/{slug}/related:
+    get:
+      tags: [Catalogue]
+      summary: List related products
+      description: Up to four other listed products in the same category.
+      security: []
+      parameters:
+        - { in: path, name: slug, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The related products were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Product" }
+
+  /api/v1/categories:
+    get:
+      tags: [Catalogue]
+      summary: List active categories
+      security: []
+      responses:
+        "200":
+          description: The categories were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Category" }
+
+  /api/v1/cart:
+    get:
+      tags: [Cart]
+      summary: Retrieve the cart
+      description: >
+        Priced at current catalogue prices on every read, so a price change is
+        never hidden by a cart left open.
+      responses:
+        "200":
+          $ref: "#/components/responses/CartResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Cart]
+      summary: Empty the cart
+      responses:
+        "200":
+          $ref: "#/components/responses/CartResponse"
+
+  /api/v1/cart/items:
+    post:
+      tags: [Cart]
+      summary: Add an item
+      description: Adding a product already in the cart increases its quantity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id: { type: string }
+                quantity: { type: integer, default: 1, minimum: 1, maximum: 999 }
+      responses:
+        "201":
+          $ref: "#/components/responses/CartResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/cart/items/{productId}:
+    patch:
+      tags: [Cart]
+      summary: Set a line's quantity
+      parameters:
+        - { in: path, name: productId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 999 }
+      responses:
+        "200":
+          $ref: "#/components/responses/CartResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Cart]
+      summary: Remove a line
+      parameters:
+        - { in: path, name: productId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/CartResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: Place an order
+      description: >
+        Turns the cart into an order and reserves the stock. Prices are taken
+        from the catalogue, never from the client. Home delivery adds a flat
+        ₦2,500 (250000 kobo); farm pickup is free.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, phone, delivery_method]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                delivery_method: { type: string, enum: [delivery, pickup] }
+                address:
+                  type: string
+                  description: Required when delivery_method is "delivery".
+      responses:
+        "201":
+          $ref: "#/components/responses/OrderResponse"
+        "409":
+          description: A product in the cart no longer has enough stock.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "422":
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Orders]
+      summary: List your orders
+      parameters:
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: The orders were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Order" }
+
+  /api/v1/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Retrieve one of your orders
+      description: >
+        Another customer's order returns 404 rather than 403, so identifiers
+        cannot be probed for existence.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/OrderResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/orders/number/{number}:
+    get:
+      tags: [Orders]
+      summary: Retrieve an order by its number
+      parameters:
+        - { in: path, name: number, required: true, schema: { type: string, example: "DG-123456" } }
+      responses:
+        "200":
+          $ref: "#/components/responses/OrderResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel an unpaid order
+      description: Releases the reserved stock. A paid order is a refund decision instead.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/OrderResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/payments/initialize:
+    post:
+      tags: [Payments]
+      summary: Start a payment
+      description: >
+        Creates a payment attempt with a fresh reference and returns the
+        Paystack checkout URL. Retrying after a failure creates a new attempt
+        rather than reusing the failed one.
+
+
+        Supply either `order_id` or `booking_id`, not both. Paying for an
+        order requires a session. Paying a consultation fee does not, because
+        the consultation page is public: a guest booking is matched on
+        `booking_reference` as well as its identifier.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order_id: { type: string }
+                booking_id: { type: string }
+                booking_reference:
+                  type: string
+                  description: >
+                    Required with `booking_id` for a guest booking, which has
+                    no account to check the caller against.
+              oneOf:
+                - required: [order_id]
+                - required: [booking_id]
+      responses:
+        "201":
+          description: The payment was initialized.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PaymentInitialization" }
+        "409":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/payments/verify:
+    post:
+      tags: [Payments]
+      summary: Verify a payment
+      description: >
+        Asks Paystack for the authoritative result and applies it. The callback
+        page calls this, because a customer returning from Paystack proves
+        nothing on its own.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              properties:
+                reference: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/PaymentResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/payments:
+    get:
+      tags: [Payments]
+      summary: List your transactions
+      responses:
+        "200":
+          description: The transactions were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Payment" }
+
+  /api/v1/payments/{reference}:
+    get:
+      tags: [Payments]
+      summary: Retrieve a payment by reference
+      parameters:
+        - { in: path, name: reference, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/PaymentResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/webhooks/paystack:
+    post:
+      tags: [Payments]
+      summary: Receive a Paystack webhook
+      description: >
+        Authenticated by the `X-Paystack-Signature` header, which is verified
+        against the raw request body before anything is decoded. Processing is
+        idempotent: a replayed delivery changes nothing and still returns 200,
+        because a non-2xx reply would make Paystack retry work already done.
+      security: []
+      parameters:
+        - in: header
+          name: X-Paystack-Signature
+          required: true
+          schema: { type: string }
+          description: HMAC-SHA512 of the raw body, keyed with the secret key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/products:
+    get:
+      tags: [Admin]
+      summary: List every product, archived ones included
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [active, archived] } }
+        - { in: query, name: category, schema: { type: string } }
+        - { in: query, name: search, schema: { type: string } }
+      responses:
+        "200":
+          description: The products were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AdminProduct" }
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Admin]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductWrite" }
+      responses:
+        "201":
+          $ref: "#/components/responses/ProductResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/products/{id}:
+    get:
+      tags: [Admin]
+      summary: Retrieve any product
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductResponse"
+    patch:
+      tags: [Admin]
+      summary: Update a product
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductWrite" }
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductResponse"
+    delete:
+      tags: [Admin]
+      summary: Delete or archive a product
+      description: >
+        A product no order refers to is deleted outright, along with its stock
+        record, its movement log and its images in the media library.
+
+
+        A product that has been ordered is archived instead: a soft delete that
+        keeps the record, because the order lines that name it — and the
+        customer's own order history — have to go on resolving. The response
+        says which of the two happened, in both the message and `data.deleted`.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The product was deleted or archived.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted:
+                            type: boolean
+                            description: >
+                              True when the product was removed outright, false
+                              when it was archived because it has orders.
+                          images_deleted:
+                            type: integer
+                            description: Media files removed alongside it.
+
+  /api/v1/admin/products/upload-signature:
+    post:
+      tags: [Admin]
+      summary: Issue an ImageKit upload signature
+      description: >
+        Short-lived credentials so the admin browser uploads straight to the
+        media host. The private key never leaves the API.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder: { type: string, default: /denisco/products }
+      responses:
+        "200":
+          description: The signature was issued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/UploadSignature" }
+        "503":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/inventory:
+    get:
+      tags: [Admin]
+      summary: List stock levels
+      responses:
+        "200":
+          description: The stock levels were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/StockLevel" }
+
+  /api/v1/admin/inventory/adjustments:
+    post:
+      tags: [Admin]
+      summary: Adjust stock
+      description: A reason is mandatory, so every quantity change can be explained later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, quantity, reason]
+              properties:
+                product_id: { type: string }
+                quantity:
+                  type: integer
+                  description: Signed delta; positive adds stock, negative removes it.
+                reason: { type: string }
+      responses:
+        "200":
+          description: The stock was adjusted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/StockLevel" }
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/inventory/movements:
+    get:
+      tags: [Admin]
+      summary: List stock movements
+      parameters:
+        - { in: query, name: product_id, schema: { type: string } }
+      responses:
+        "200":
+          description: The movements were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/StockMovement" }
+
+  /api/v1/admin/orders:
+    get:
+      tags: [Admin]
+      summary: List orders
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, processing, dispatched, completed, cancelled] } }
+        - { in: query, name: payment_status, schema: { type: string, enum: [pending, paid, failed, refunded] } }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: customer_id, schema: { type: string } }
+        - in: query
+          name: needs_reconciliation
+          description: >-
+            Narrows the list to orders awaiting a late-payment decision
+            (`true`), or to those clear of one (`false`).
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: The orders were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Order" }
+
+  /api/v1/admin/orders/{id}:
+    get:
+      tags: [Admin]
+      summary: Retrieve any order
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/OrderResponse"
+
+  /api/v1/admin/orders/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Update fulfillment status
+      description: >
+        Moves an order forward through handling. Permitted transitions are
+        pending → processing → dispatched → completed, with cancellation
+        available until dispatch. Cancelling returns the reserved stock.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, processing, dispatched, completed, cancelled] }
+      responses:
+        "200":
+          $ref: "#/components/responses/OrderResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/payments:
+    get:
+      tags: [Admin]
+      summary: List transactions
+      parameters:
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: customer_id, schema: { type: string } }
+      responses:
+        "200":
+          description: The transactions were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Payment" }
+
+  /api/v1/admin/payments/{id}:
+    get:
+      tags: [Admin]
+      summary: Retrieve a transaction
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/PaymentResponse"
+
+  /api/v1/admin/payments/{id}/refund:
+    post:
+      tags: [Admin]
+      summary: Refund a payment
+      description: Only a successful payment can be refunded. The action is audited.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/PaymentResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/consultations/types:
+    get:
+      tags: [Consultations]
+      summary: List consultation services
+      security: []
+      responses:
+        "200":
+          description: The services were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ConsultationType" }
+
+  /api/v1/consultations/slots:
+    get:
+      tags: [Consultations]
+      summary: Retrieve the booking calendar
+      description: >
+        Returns the dates and times on offer for the next 31 days, each marked
+        with whether it is still free. A slot holds one session: a time already
+        booked is unavailable to every consultation type, because the farm
+        cannot run two consultations at once.
+      security: []
+      parameters:
+        - in: query
+          name: type_id
+          deprecated: true
+          description: >
+            Ignored. Availability is the same for every service; the parameter
+            is accepted so existing clients keep working.
+          schema: { type: string }
+      responses:
+        "200":
+          description: The calendar was retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Availability" }
+
+  /api/v1/consultations/bookings:
+    post:
+      tags: [Consultations]
+      summary: Book a consultation
+      description: >
+        Open to guests: a bearer token is optional, and when present the
+        booking is attached to that account so it appears in the customer's
+        history. One live booking is allowed per service, date and time, which
+        a unique index enforces rather than a read-then-write check.
+      security:
+        - bearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type_id, date, time, name, email, phone]
+              properties:
+                type_id: { type: string }
+                date: { type: string, format: date, examples: ["2026-10-17"] }
+                time:
+                  type: string
+                  description: Either "01:00 PM" or a 24-hour "13:00".
+                name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                notes: { type: string, maxLength: 1000 }
+      responses:
+        "201":
+          $ref: "#/components/responses/BookingResponse"
+        "409":
+          description: That slot was taken while the form was open.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "422":
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Consultations]
+      summary: List your bookings
+      responses:
+        "200":
+          description: The bookings were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Booking" }
+
+  /api/v1/consultations/bookings/{id}:
+    get:
+      tags: [Consultations]
+      summary: Retrieve one of your bookings
+      description: >
+        A signed-in customer reads their own booking. A guest booking belongs
+        to no account, so it is read by presenting `ref` alongside the
+        identifier — both together, which is what keeps identifiers from being
+        walked. A reference is not a way around ownership: a booking that does
+        belong to an account still requires that account.
+      security: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - in: query
+          name: ref
+          description: The booking reference, for a guest booking.
+          schema: { type: string, examples: ["CB-12345"] }
+      responses:
+        "200":
+          $ref: "#/components/responses/BookingResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/consultations/bookings/{id}/cancel:
+    post:
+      tags: [Consultations]
+      summary: Cancel a booking
+      description: Frees the slot for someone else while keeping the record.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/BookingResponse"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/consultations/types:
+    get:
+      tags: [Admin]
+      summary: List every consultation service, inactive ones included
+      responses:
+        "200":
+          description: The services were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ConsultationType" }
+    post:
+      tags: [Admin]
+      summary: Add a consultation service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConsultationTypeWrite" }
+      responses:
+        "201":
+          description: The service was created.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ConsultationType" }
+
+  /api/v1/admin/consultations/types/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update a consultation service
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConsultationTypeWrite" }
+      responses:
+        "200":
+          description: The service was updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ConsultationType" }
+    delete:
+      tags: [Admin]
+      summary: Delete a consultation service
+      description: >
+        Refused when the service already has bookings, because those bookings
+        name it; deactivate it instead to take it off the booking page.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/consultations/slots:
+    get:
+      tags: [Admin]
+      summary: Retrieve the availability grid
+      responses:
+        "200":
+          description: The grid was retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Availability" }
+    post:
+      tags: [Admin]
+      summary: Open dates and times for booking
+      description: >
+        Omitting times reuses the times already offered, which is what
+        selecting dates on the calendar means; omitting dates applies new times
+        to every date already open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SlotsWrite" }
+      responses:
+        "201":
+          description: The grid was updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Availability" }
+
+  /api/v1/admin/consultations/slots/remove:
+    post:
+      tags: [Admin]
+      summary: Close dates or times for booking
+      description: Existing bookings are untouched; only future booking is affected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SlotsWrite" }
+      responses:
+        "200":
+          description: The grid was updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Availability" }
+
+  /api/v1/admin/consultations/slots/{id}:
+    delete:
+      tags: [Admin]
+      summary: Remove one time slot
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+
+  /api/v1/admin/consultations/bookings:
+    get:
+      tags: [Admin]
+      summary: List bookings
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, confirmed, completed, cancelled, no_show] } }
+        - { in: query, name: type_id, schema: { type: string } }
+        - { in: query, name: date, schema: { type: string, format: date } }
+        - { in: query, name: search, schema: { type: string } }
+      responses:
+        "200":
+          description: The bookings were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Booking" }
+
+  /api/v1/admin/consultations/bookings/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Update a booking's status
+      description: >
+        Cancelling or marking a no-show frees the slot for someone else; the
+        other statuses keep it held.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, confirmed, completed, cancelled, no_show] }
+      responses:
+        "200":
+          $ref: "#/components/responses/BookingResponse"
+        "422":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/dashboard/overview:
+    get:
+      tags: [Admin]
+      summary: Dashboard overview
+      description: >
+        The stat cards, recent activity and the last seven days of revenue,
+        bucketed by trading day in Africa/Lagos.
+      responses:
+        "200":
+          description: The overview was retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/DashboardOverview" }
+
+  /api/v1/admin/customers:
+    get:
+      tags: [Admin]
+      summary: List customers
+      parameters:
+        - { in: query, name: search, schema: { type: string }, description: Matches name, email or phone }
+      responses:
+        "200":
+          description: The customers were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Customer" }
+
+  /api/v1/admin/customers/{id}:
+    get:
+      tags: [Admin]
+      summary: Retrieve a customer with their history
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The customer was retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/CustomerDetail" }
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: List the audit trail
+      description: >
+        Append-only records of sensitive administrative actions. The actor's
+        email is resolved at read time from the stored identifier.
+      responses:
+        "200":
+          description: The entries were retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AuditEntry" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: EdDSA-signed access token, valid for 15 minutes.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: denisco_refresh
+      description: HttpOnly, Secure, SameSite refresh cookie scoped to /api/v1/auth.
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          const: true
+        message:
+          type: string
+        data:
+          description: Present when the operation returns a resource.
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    ErrorEnvelope:
+      type: object
+      required: [success, message, error]
+      properties:
+        success:
+          type: boolean
+          const: false
+        message:
+          type: string
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [VALIDATION_ERROR, INVALID_CREDENTIALS, RATE_LIMITED]
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [customer, admin, super_admin]
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        category: { type: string, description: "Category slug, used by the shop's filters." }
+        category_id: { type: string }
+        category_name: { type: string }
+        price: { type: integer, description: "Amount in kobo." }
+        currency: { type: string, const: NGN }
+        unit: { type: string, examples: [bird, head, bag, "100kg bag"] }
+        images:
+          type: array
+          items: { type: string }
+        image: { type: string }
+        stock: { type: integer, description: "Sellable quantity: on hand minus reserved." }
+        stock_badge: { type: string, enum: [in_stock, low_stock, out_of_stock] }
+        status: { type: string, enum: [active, archived] }
+        featured: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AdminProduct:
+      allOf:
+        - $ref: "#/components/schemas/Product"
+        - type: object
+          properties:
+            available_qty: { type: integer, description: "Quantity on hand." }
+            reserved_qty: { type: integer, description: "Promised to unpaid orders." }
+
+    ProductWrite:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        category: { type: string, description: "Category slug." }
+        price: { type: integer, description: "Amount in kobo; must be greater than zero." }
+        unit: { type: string, maxLength: 40 }
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              file_id: { type: string }
+        status: { type: string, enum: [active, archived] }
+        featured: { type: boolean }
+        stock: { type: integer, minimum: 0 }
+
+    Category:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        position: { type: integer }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    CartItem:
+      type: object
+      properties:
+        id: { type: string, description: "The product id; a cart holds one line per product." }
+        product_id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        image: { type: string }
+        unit: { type: string }
+        unit_price: { type: integer }
+        quantity: { type: integer }
+        line_total: { type: integer }
+        stock: { type: integer }
+        stock_badge: { type: string }
+        available: { type: boolean, description: "False when the product was archived or stock fell below the quantity held." }
+        added_at: { type: string, format: date-time }
+
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CartItem" }
+        subtotal: { type: integer }
+        item_count: { type: integer }
+        currency: { type: string }
+        has_unavailable_items: { type: boolean }
+
+    OrderItem:
+      type: object
+      properties:
+        product_id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        image: { type: string }
+        unit: { type: string }
+        unit_price: { type: integer }
+        quantity: { type: integer }
+        line_total: { type: integer }
+
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        order_number: { type: string, examples: ["DG-123456"] }
+        user_id: { type: string }
+        customer:
+          type: object
+          properties:
+            name: { type: string }
+            email: { type: string }
+            phone: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        subtotal: { type: integer }
+        delivery_fee: { type: integer, description: "250000 kobo (₦2,500) for delivery, 0 for pickup." }
+        total: { type: integer }
+        currency: { type: string, const: NGN }
+        delivery_method: { type: string, enum: [delivery, pickup] }
+        address: { type: string }
+        status: { type: string, enum: [pending, processing, dispatched, completed, cancelled] }
+        payment_status: { type: string, enum: [pending, paid, failed, refunded] }
+        payment_ref: { type: string }
+        payment_method: { type: string }
+        item_count: { type: integer }
+        needs_reconciliation:
+          type: boolean
+          description: >-
+            Set when a payment was confirmed after the order's stock
+            reservation had expired and the items could not be secured again.
+            The money is held against goods that cannot be shipped, so an
+            administrator must restock or refund.
+        reconciliation_reason:
+          type: string
+          enum: [stock_secured, refund_required]
+          description: >-
+            How a late payment was resolved. `stock_secured` means the units
+            were still available and were taken for the order, which returns
+            to `pending`; `refund_required` means they were gone, and the
+            order stays cancelled until a refund is issued.
+        paid_at: { type: string, format: date-time }
+        cancelled_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        reference: { type: string, examples: ["PSK-44WD54XQYSTOMGQ3"] }
+        purpose:
+          type: string
+          enum: [order, consultation]
+          description: >
+            What the attempt is paying for. The order fields are set on an
+            order payment and the booking fields on a consultation payment.
+        order_id: { type: string }
+        order_number: { type: string }
+        booking_id: { type: string }
+        booking_reference: { type: string, examples: ["CB-12345"] }
+        user_id: { type: string, description: Absent on a guest consultation payment. }
+        customer_name: { type: string }
+        email: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        status: { type: string, enum: [initialized, pending, successful, failed, abandoned, expired, refunded] }
+        provider: { type: string, const: paystack }
+        method: { type: string }
+        channel: { type: string }
+        paid_at: { type: string, format: date-time }
+        refunded_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PaymentInitialization:
+      type: object
+      properties:
+        reference: { type: string }
+        authorization_url: { type: string, description: "Send the customer here to pay." }
+        access_code: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        purpose: { type: string, enum: [order, consultation] }
+        order_id: { type: string }
+        order_number: { type: string }
+        booking_id: { type: string }
+        booking_reference: { type: string }
+
+    StockLevel:
+      type: object
+      properties:
+        product_id: { type: string }
+        available_qty: { type: integer }
+        reserved_qty: { type: integer }
+        sellable: { type: integer }
+        stock_badge: { type: string }
+        updated_at: { type: string, format: date-time }
+
+    StockMovement:
+      type: object
+      properties:
+        id: { type: string }
+        product_id: { type: string }
+        type: { type: string, enum: [reservation, release, deduction, adjustment] }
+        quantity: { type: integer, description: "Signed delta." }
+        reason: { type: string }
+        actor_id: { type: string }
+        reference: { type: string, description: "The order number that caused the movement." }
+        created_at: { type: string, format: date-time }
+
+    UploadSignature:
+      type: object
+      properties:
+        token: { type: string }
+        expire: { type: integer }
+        signature: { type: string }
+        public_key: { type: string }
+        url_endpoint: { type: string }
+        upload_url: { type: string }
+        folder: { type: string }
+
+    ConsultationType:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        duration: { type: string, description: "Display label, e.g. \"60 mins\"." }
+        duration_minutes: { type: integer }
+        price: { type: integer, description: "Amount in kobo." }
+        currency: { type: string, const: NGN }
+        active: { type: boolean }
+        position: { type: integer }
+
+    ConsultationTypeWrite:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        description: { type: string }
+        duration_minutes: { type: integer, minimum: 15, maximum: 480 }
+        price: { type: integer, description: "Amount in kobo." }
+        active: { type: boolean }
+
+    Slot:
+      type: object
+      properties:
+        id: { type: string }
+        date: { type: string, format: date }
+        time: { type: string, examples: ["09:00 AM"] }
+        available:
+          type: boolean
+          description: False when the requested service is already booked then.
+
+    Availability:
+      type: object
+      properties:
+        dates:
+          type: array
+          items: { type: string, format: date }
+        times:
+          type: array
+          items: { type: string }
+        slots:
+          type: array
+          items: { $ref: "#/components/schemas/Slot" }
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string }
+        reference: { type: string, examples: ["CB-12345"] }
+        user_id: { type: string, description: Absent for a guest booking. }
+        type_id: { type: string }
+        type_name: { type: string }
+        type_price: { type: integer }
+        date: { type: string, format: date }
+        time: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        notes: { type: string }
+        status: { type: string, enum: [pending, confirmed, completed, cancelled, no_show] }
+        payment_status:
+          type: string
+          enum: [not_required, pending, paid, failed, refunded]
+          description: >
+            The state of the consultation fee. "not_required" is a free
+            service. A paid fee also confirms the booking; a failed one leaves
+            the slot held so the customer can retry.
+        payment_ref: { type: string, examples: ["PSK-44WD54XQYSTOMGQ3"] }
+        paid_at: { type: string, format: date-time }
+        payable:
+          type: boolean
+          description: True while the fee can still be settled.
+        created_at: { type: string, format: date-time }
+
+    SlotsWrite:
+      type: object
+      properties:
+        dates:
+          type: array
+          items: { type: string, format: date }
+        times:
+          type: array
+          items: { type: string, description: "\"09:00 AM\" or \"09:00\"." }
+
+    SalesPoint:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        label: { type: string, description: "Short weekday, e.g. \"Mon\"." }
+        revenue: { type: integer }
+
+    DashboardOverview:
+      type: object
+      properties:
+        total_revenue: { type: integer }
+        total_orders: { type: integer }
+        total_customers: { type: integer }
+        total_products: { type: integer }
+        pending_orders: { type: integer }
+        consultation_bookings: { type: integer }
+        currency: { type: string }
+        recent_orders:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              order_number: { type: string }
+              customer_name: { type: string }
+              total: { type: integer }
+              status: { type: string }
+              payment_status: { type: string }
+              created_at: { type: string, format: date-time }
+        recent_bookings:
+          type: array
+          items: { $ref: "#/components/schemas/Booking" }
+        sales:
+          type: array
+          items: { $ref: "#/components/schemas/SalesPoint" }
+
+    Customer:
+      type: object
+      properties:
+        id: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        status: { type: string, enum: [active, inactive, suspended] }
+        email_verified: { type: boolean }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time }
+
+    CustomerDetail:
+      type: object
+      properties:
+        customer: { $ref: "#/components/schemas/Customer" }
+        orders:
+          type: array
+          items: { $ref: "#/components/schemas/Order" }
+        bookings:
+          type: array
+          items: { $ref: "#/components/schemas/Booking" }
+        total_orders: { type: integer }
+        total_spent: { type: integer, description: "Paid orders only." }
+
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: string }
+        actor_id: { type: string }
+        actor_email: { type: string }
+        actor_role: { type: string }
+        action: { type: string, examples: [product.created, order.status_changed, payment.refunded] }
+        resource: { type: string }
+        resource_id: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+
+    SessionData:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+          description: Access-token lifetime in seconds.
+        user:
+          $ref: "#/components/schemas/User"
+
+    RegisterRequest:
+      type: object
+      required: [first_name, last_name, email, phone, password]
+      properties:
+        first_name:
+          type: string
+          maxLength: 60
+        last_name:
+          type: string
+          maxLength: 60
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+  responses:
+    Session:
+      description: >
+        The session was issued. The access token is in the body; the refresh
+        token is set as an HttpOnly cookie and never appears in the response
+        body.
+      headers:
+        Set-Cookie:
+          schema:
+            type: string
+          description: denisco_refresh=<opaque>; HttpOnly; Secure; SameSite=Lax
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SessionData"
+
+    ProductResponse:
+      description: The product was retrieved.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+
+    CartResponse:
+      description: The cart, priced at current catalogue prices.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Cart" }
+
+    OrderResponse:
+      description: The order was retrieved.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Order" }
+
+    PaymentResponse:
+      description: The payment was retrieved.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Payment" }
+
+    BookingResponse:
+      description: The booking was retrieved.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessEnvelope"
+              - type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Booking" }
+
+    Message:
+      description: The operation succeeded and returns no resource.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SuccessEnvelope"
+
+    Error:
+      description: The request could not be completed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+security:
+  - bearerAuth: []

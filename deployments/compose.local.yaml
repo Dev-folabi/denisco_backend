@@ -1,0 +1,29 @@
+# Local overlay: publishes the application ports so a workstation can reach
+# the services directly, without hostnames or TLS.
+#
+#   docker compose -f compose.yaml -f compose.local.yaml up -d   (make docker-up-local)
+#
+# It is a separate file rather than compose.override.yaml on purpose:
+# Compose loads an override automatically, and this must never apply on the
+# VPS, where only Caddy is meant to listen.
+
+services:
+  # Caddy has no hostnames to serve locally, so it stays out of the way.
+  caddy:
+    profiles: ["never"]
+
+  api:
+    ports:
+      - "4000:4000"
+
+  web:
+    ports:
+      - "3000:3000"
+
+  admin:
+    ports:
+      - "3001:3001"
+
+  redis:
+    ports:
+      - "6379:6379"
