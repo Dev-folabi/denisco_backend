@@ -30,6 +30,10 @@ const (
 	TypeUserRegistered         = "user.registered"
 	TypePasswordResetRequested = "password_reset.requested"
 	TypePasswordChanged        = "password.changed"
+	// TypeContactReceived is a submission of the site's contact form. It is
+	// addressed to farm staff alone: a visitor has written in, and there is
+	// nobody else it concerns.
+	TypeContactReceived = "contact.received"
 )
 
 // Event is a durable record of something that happened, awaiting publication.
@@ -92,9 +96,22 @@ const (
 	// a payment was confirmed for an order whose stock had already been
 	// returned to the shop and could not be secured again.
 	TypeOrderPaymentUnreconciled = "order.payment_unreconciled"
-	TypeConsultationBooked       = "consultation.booked"
-	TypeConsultationCancelled    = "consultation.cancelled"
-	TypeConsultationStatus       = "consultation.status_changed"
+	// TypeOrderRefunded and TypeOrderPaymentFailed tell the customer their
+	// money is on its way back, or that an attempt did not go through and the
+	// order is still payable.
+	TypeOrderRefunded      = "order.refunded"
+	TypeOrderPaymentFailed = "order.payment_failed"
+	TypeConsultationBooked = "consultation.booked"
+	// TypeConsultationCancelled is the customer cancelling, or an admin
+	// cancelling on their behalf.
+	TypeConsultationCancelled = "consultation.cancelled"
+	TypeConsultationStatus    = "consultation.status_changed"
+	// TypeConsultationRefunded returns a paid fee; TypeConsultationPaymentFailed
+	// says a fee did not go through. Neither is copied to staff: a refund needs
+	// no action from the farm, and a declined card is between the customer and
+	// their bank.
+	TypeConsultationRefunded      = "consultation.refunded"
+	TypeConsultationPaymentFailed = "consultation.payment_failed"
 )
 
 // maxAttempts is how often publication is retried before an event is parked

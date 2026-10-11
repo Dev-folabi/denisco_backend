@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -89,10 +90,21 @@ func RunWorker(c *Container) error {
 
 	serverErr := make(chan error, 1)
 	go func() {
-		c.Logger.Info("worker started",
+		// Naming the unset variables is the whole point: "not configured"
+		// says nothing about which line of .env to fix, and an undelivered
+		// email otherwise looks identical to a delivered one.
+		attrs := []any{
 			slog.Int("concurrency", c.Config.Worker.Concurrency),
 			slog.Bool("email_configured", c.Mail.Configured()),
-		)
+		}
+		if !c.Mail.Configured() {
+			attrs = append(attrs,
+				slog.String("email_missing", strings.Join(c.Mail.Missing(), ",")),
+				slog.String("email_delivery", "disabled: messages will be logged instead of sent"),
+			)
+		}
+
+		c.Logger.Info("worker started", attrs...)
 		if err := server.Run(mux); err != nil {
 			serverErr <- err
 		}

@@ -56,6 +56,10 @@ func NewAPIHandler(c *Container) http.Handler {
 			c.CategoryHandler.Mount(api)
 			c.ProductHandler.MountPublic(api)
 
+			// The contact page is public and has no account behind it, so the
+			// endpoint is anonymous and carries its own rate limit.
+			c.ContactHandler.Mount(api, c.Config.RateLimit)
+
 			// Provider callbacks: authenticated by signature, not by session,
 			// so they sit outside the authenticated groups below.
 			c.PaymentHandler.MountWebhooks(api)

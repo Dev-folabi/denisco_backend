@@ -25,6 +25,11 @@ const (
 	EventBookingCreated       = "consultation.booked"
 	EventBookingCancelled     = "consultation.cancelled"
 	EventBookingStatusChanged = "consultation.status_changed"
+	// EventBookingRefunded and EventBookingPaymentFailed are customer notices
+	// about the fee: a paid fee was returned, or an attempt did not go through
+	// and the slot is still held.
+	EventBookingRefunded      = "consultation.refunded"
+	EventBookingPaymentFailed = "consultation.payment_failed"
 )
 
 // referenceAttempts bounds the retry loop for a unique booking reference.
@@ -294,7 +299,8 @@ func (s *Service) MarkBookingPaid(ctx context.Context, id bson.ObjectID, referen
 }
 
 // MarkBookingPaymentFailed records a declined or abandoned attempt. The slot
-// stays held so the customer can retry.
+// stays held so the customer can retry, and they are told it can be retried —
+// a fee that quietly fails looks to the customer like a booking that vanished.
 func (s *Service) MarkBookingPaymentFailed(ctx context.Context, id bson.ObjectID, status string) error {
 	if status != domain.PaymentFailed {
 		// Abandoned and expired attempts read the same way to the farm: the
@@ -306,6 +312,8 @@ func (s *Service) MarkBookingPaymentFailed(ctx context.Context, id bson.ObjectID
 		return apperror.From(err)
 	}
 
+	s.emitBookingEvent(ctx, id, EventBookingPaymentFailed)
+
 	logger.FromContext(ctx).Info("consultation fee not paid",
 		slog.String("module", "consultations"),
 		slog.String("booking_id", id.Hex()),
@@ -314,12 +322,34 @@ func (s *Service) MarkBookingPaymentFailed(ctx context.Context, id bson.ObjectID
 	return nil
 }
 
-// MarkBookingRefunded records a refunded fee.
+// MarkBookingRefunded records a refunded fee and tells the customer.
 func (s *Service) MarkBookingRefunded(ctx context.Context, id bson.ObjectID) error {
 	if _, err := s.bookings.MarkRefunded(ctx, id); err != nil {
 		return apperror.From(err)
 	}
+
+	s.emitBookingEvent(ctx, id, EventBookingRefunded)
 	return nil
+}
+
+// emitBookingEvent re-reads a booking to build its notification.
+//
+// The state change has already committed, so a failure to reload is logged
+// rather than returned: the fee is refunded either way, and losing the email
+// is a lesser fault than reporting the refund as failed.
+func (s *Service) emitBookingEvent(ctx context.Context, id bson.ObjectID, eventType string) {
+	booking, err := s.bookings.FindByID(ctx, id)
+	if err != nil {
+		logger.FromContext(ctx).Warn("could not reload booking for notification",
+			slog.String("module", "consultations"),
+			slog.String("event_type", eventType),
+			slog.String("booking_id", id.Hex()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	s.emit(ctx, eventType, booking)
 }
 
 // GetBooking returns one booking, enforcing ownership.

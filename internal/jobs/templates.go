@@ -169,6 +169,32 @@ func Render(eventType string, data map[string]any, siteURL string) (email, bool)
 			text: fmt.Sprintf("Order %s has been cancelled and the items returned to the shop.", number),
 		}, true
 
+	case outbox.TypeOrderRefunded:
+		number := str(data, "order_number")
+		return email{
+			to:      str(data, "email"),
+			subject: "Refund issued for order " + number,
+			html: layout("Refund issued", greeting(str(data, "name")),
+				fmt.Sprintf(`<p>We have refunded <strong>%s</strong> for order <strong>%s</strong>.</p>
+					<p>The money returns to the payment method you used, which usually takes 3–5 business days to appear.</p>`,
+					Money(money(data, "total")), html.EscapeString(number)),
+				button(siteURL+"/account/orders", "View Order")),
+			text: fmt.Sprintf("We have refunded %s for order %s. The money returns to the payment method you used, which usually takes 3-5 business days.", Money(money(data, "total")), number),
+		}, true
+
+	case outbox.TypeOrderPaymentFailed:
+		number := str(data, "order_number")
+		return email{
+			to:      str(data, "email"),
+			subject: "Payment did not go through — order " + number,
+			html: layout("Payment not completed", greeting(str(data, "name")),
+				fmt.Sprintf(`<p>We could not take payment of <strong>%s</strong> for order <strong>%s</strong>. No money has left your account.</p>
+					<p>The items have been returned to the shop, so you will need to place the order again — prices and availability may have changed since.</p>`,
+					Money(money(data, "total")), html.EscapeString(number)),
+				button(siteURL+"/account/orders", "View Order")),
+			text: fmt.Sprintf("We could not take payment of %s for order %s. No money has left your account. The items have been returned to the shop, so you will need to place the order again.", Money(money(data, "total")), number),
+		}, true
+
 	case outbox.TypeOrderPaymentUnreconciled:
 		number := str(data, "order_number")
 		return email{
@@ -248,6 +274,71 @@ func Render(eventType string, data map[string]any, siteURL string) (email, bool)
 				str(data, "type_name"), str(data, "date"), str(data, "time"), str(data, "status")),
 		}, true
 
+	case outbox.TypeConsultationRefunded:
+		reference := str(data, "reference")
+		return email{
+			to:      str(data, "email"),
+			subject: "Consultation fee refunded — " + reference,
+			html: layout("Fee refunded", greeting(str(data, "name")),
+				fmt.Sprintf(`<p>We have refunded your fee of <strong>%s</strong> for the <strong>%s</strong> booked under <strong>%s</strong>.</p>
+					<p>The money returns to the payment method you used, which usually takes 3–5 business days to appear.</p>`,
+					Money(money(data, "amount")),
+					html.EscapeString(str(data, "type_name")),
+					html.EscapeString(reference)),
+				button(siteURL+"/account/consultations", "View Bookings")),
+			text: fmt.Sprintf("We have refunded your fee of %s for the %s booked under %s. The money returns to the payment method you used, which usually takes 3-5 business days.",
+				Money(money(data, "amount")), str(data, "type_name"), reference),
+		}, true
+
+	case outbox.TypeConsultationPaymentFailed:
+		reference := str(data, "reference")
+		return email{
+			to:      str(data, "email"),
+			subject: "Consultation fee not paid — " + reference,
+			html: layout("Fee not paid", greeting(str(data, "name")),
+				fmt.Sprintf(`<p>We could not take your fee of <strong>%s</strong> for the <strong>%s</strong> on %s at %s. No money has left your account.</p>
+					<p>Your time is still held. Pay the fee to confirm the appointment.</p>`,
+					Money(money(data, "amount")),
+					html.EscapeString(str(data, "type_name")),
+					html.EscapeString(str(data, "date")),
+					html.EscapeString(str(data, "time"))),
+				button(siteURL+"/account/consultations", "Pay Fee")),
+			text: fmt.Sprintf("We could not take your fee of %s for the %s on %s at %s. No money has left your account, and your time is still held. Pay the fee from your bookings page to confirm the appointment.",
+				Money(money(data, "amount")), str(data, "type_name"), str(data, "date"), str(data, "time")),
+		}, true
+
+	case outbox.TypeContactReceived:
+		// Addressed to the farm by the worker, like the late-payment notice.
+		// A visitor has written in and is waiting on a reply, so the sender's
+		// address is quoted in the body rather than being the recipient.
+		name := str(data, "name")
+		emailAddress := str(data, "email")
+		phone := str(data, "phone")
+
+		details := map[string]string{
+			"From":    name + " <" + emailAddress + ">",
+			"Subject": str(data, "subject"),
+		}
+		if phone != "" {
+			details["Phone"] = phone
+		}
+
+		footer := ""
+		if phone != "" {
+			footer = " · " + phone
+		}
+
+		return email{
+			subject: "Website enquiry: " + str(data, "subject"),
+			html: layout("New website enquiry", "Hello,",
+				fmt.Sprintf(`<p>A visitor has written in through the contact form.</p>%s
+					<p style="white-space:pre-wrap;">%s</p>`,
+					detailBox(details), html.EscapeString(str(data, "message"))),
+				"mailto:"+html.EscapeString(emailAddress)),
+			text: fmt.Sprintf("New website enquiry from %s <%s>%s.\nSubject: %s\n\n%s",
+				name, emailAddress, footer, str(data, "subject"), str(data, "message")),
+		}, true
+
 	default:
 		return email{}, false
 	}
@@ -267,8 +358,10 @@ func detailBox(rows map[string]string) string {
 	b.WriteString(`<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:18px 0;border:1px dashed ` + colourLine + `;border-radius:12px;background:` + colourCream + `;">`)
 	b.WriteString(`<tr><td style="padding:16px 18px;">`)
 
-	// A fixed order keeps the panel stable across sends.
-	for _, key := range []string{"Reference", "Date", "Time", "Fee"} {
+	// A fixed order keeps the panel stable across sends, whichever template
+	// filled it: bookings carry a reference and a time, an enquiry carries a
+	// sender and a subject.
+	for _, key := range []string{"Reference", "Date", "Time", "Fee", "From", "Phone", "Subject"} {
 		value, ok := rows[key]
 		if !ok || value == "" {
 			continue

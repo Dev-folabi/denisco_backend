@@ -221,6 +221,13 @@ func TestRetriedPaymentKeepsEachAttemptOnRecord(t *testing.T) {
 		t.Errorf("reserved = %d after a failed payment, want 0", reserved)
 	}
 
+	// The decline is announced. The cart was emptied at checkout, so without
+	// this notice a declined card leaves the customer with no way back to the
+	// order and no idea anything is wrong.
+	if count := e.outboxCount(t, "order.payment_failed"); count != 1 {
+		t.Errorf("order.payment_failed events = %d, want 1", count)
+	}
+
 	// The customer tries again. The failed attempt is kept rather than
 	// overwritten, and the new attempt gets its own reference.
 	second := e.initializePayment(t, order.ID, buyer)
@@ -230,6 +237,11 @@ func TestRetriedPaymentKeepsEachAttemptOnRecord(t *testing.T) {
 
 	e.provider.settle(second, "success")
 	e.deliverWebhook(t, "charge.success", second)
+
+	// The retry settles the order, so the decline is not re-announced.
+	if count := e.outboxCount(t, "order.payment_failed"); count != 1 {
+		t.Errorf("order.payment_failed events = %d after a successful retry, want still 1", count)
+	}
 
 	attempts, total, err := e.container.PaymentService.ListForCustomer(ctx(t), buyer.ID, 1, 20)
 	if err != nil {
@@ -397,6 +409,11 @@ func TestLatePaymentIsFlaggedForRefundWhenTheStockHasGone(t *testing.T) {
 	if e.order(t, order.ID).PaymentStatus != ordersdomain.PaymentRefunded {
 		t.Errorf("order payment_status = %q, want %q", e.order(t, order.ID).PaymentStatus, ordersdomain.PaymentRefunded)
 	}
+
+	// The customer is told their money is coming back.
+	if count := e.outboxCount(t, "order.refunded"); count != 1 {
+		t.Errorf("order.refunded events = %d, want 1", count)
+	}
 }
 
 // expireReservations ages an order past the reservation window and runs the
@@ -559,6 +576,12 @@ func TestDeclinedConsultationFeeKeepsTheSlot(t *testing.T) {
 		t.Error("a booking with a declined fee should still be payable")
 	}
 
+	// The decline is announced, so the customer knows the fee did not go
+	// through rather than waiting for a confirmation that will not come.
+	if count := e.outboxCount(t, "consultation.payment_failed"); count != 1 {
+		t.Errorf("consultation.payment_failed events = %d, want 1", count)
+	}
+
 	// The slot is still held, so nobody else can take that hour.
 	if _, err := e.book(c, typeID, date, slotTime, uniqueEmail("declined-other")); !errors.Is(err, consultdomain.ErrSlotUnavailable) {
 		t.Errorf("Book() on a slot held by an unpaid booking error = %v, want ErrSlotUnavailable", err)
@@ -582,5 +605,65 @@ func TestDeclinedConsultationFeeKeepsTheSlot(t *testing.T) {
 	}
 	if paid.PaymentStatus != consultdomain.PaymentPaid {
 		t.Errorf("payment_status after retry = %q, want %q", paid.PaymentStatus, consultdomain.PaymentPaid)
+	}
+}
+
+// TestRefundedConsultationFeeTellsTheCustomer covers the other half of the
+// consultation payment story: once the farm gives the fee back, the customer
+// is told, the same way a refunded order is.
+func TestRefundedConsultationFeeTellsTheCustomer(t *testing.T) {
+	e := require(t)
+	c := ctx(t)
+
+	typeID := e.seedConsultations(t)
+	date, slotTime := e.bookableSlot(t, typeID)
+
+	booking, err := e.book(c, typeID, date, slotTime, uniqueEmail("refund"))
+	if err != nil {
+		t.Fatalf("Book() returned error: %v", err)
+	}
+
+	attempt, err := e.container.PaymentService.InitializeBooking(c, booking.ID, booking.Reference, bson.ObjectID{}, false)
+	if err != nil {
+		t.Fatalf("InitializeBooking() returned error: %v", err)
+	}
+
+	e.provider.settle(attempt.Reference, "success")
+	e.deliverWebhook(t, "charge.success", attempt.Reference)
+
+	if count := e.outboxCount(t, "consultation.booked"); count != 1 {
+		t.Fatalf("consultation.booked events = %d, want 1 before the refund", count)
+	}
+
+	record, err := e.container.PaymentService.Get(c, attempt.Reference, bson.ObjectID{}, true)
+	if err != nil {
+		t.Fatalf("Get() returned error: %v", err)
+	}
+
+	refunded, err := e.container.PaymentService.Refund(ctx(t), record.ID, paymentsapp.Actor{
+		ID:    adminActor.ID,
+		Email: adminActor.Email,
+		Role:  adminActor.Role,
+	})
+	if err != nil {
+		t.Fatalf("Refund() returned error: %v", err)
+	}
+	if refunded.Status != paymentsdomain.StatusRefunded {
+		t.Errorf("attempt status = %q, want %q", refunded.Status, paymentsdomain.StatusRefunded)
+	}
+	if refunds := e.provider.refunded(); len(refunds) != 1 || refunds[0] != attempt.Reference {
+		t.Errorf("the provider was asked to refund %v, want [%s]", refunds, attempt.Reference)
+	}
+
+	after, err := e.container.ConsultationService.GetBooking(c, booking.ID, consultapp.Viewer{IsAdmin: true})
+	if err != nil {
+		t.Fatalf("GetBooking() after the refund returned error: %v", err)
+	}
+	if after.PaymentStatus != consultdomain.PaymentRefunded {
+		t.Errorf("payment_status = %q, want %q", after.PaymentStatus, consultdomain.PaymentRefunded)
+	}
+
+	if count := e.outboxCount(t, "consultation.refunded"); count != 1 {
+		t.Errorf("consultation.refunded events = %d, want 1", count)
 	}
 }

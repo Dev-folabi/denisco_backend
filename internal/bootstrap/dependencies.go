@@ -24,6 +24,8 @@ import (
 	consultapp "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/application"
 	consultinfra "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/infrastructure"
 	consulttransport "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/transport"
+	contactapp "github.com/Dev-folabi/denisco_backend/internal/modules/contact/application"
+	contacttransport "github.com/Dev-folabi/denisco_backend/internal/modules/contact/transport"
 	inventoryapp "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/application"
 	inventoryinfra "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/infrastructure"
 	inventorytransport "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/transport"
@@ -90,6 +92,9 @@ type Container struct {
 
 	ConsultationService *consultapp.Service
 	ConsultationHandler *consulttransport.Handler
+
+	ContactService *contactapp.Service
+	ContactHandler *contacttransport.Handler
 
 	AdminService *adminapp.Service
 	AdminHandler *admintransport.Handler
@@ -202,6 +207,10 @@ func NewContainer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Co
 		auditor,
 	)
 
+	// Contact. It stores nothing of its own — a submission is appended to the
+	// outbox and the worker turns it into an email to the farm.
+	contactService := contactapp.NewService(events)
+
 	paymentService := paymentsapp.NewService(
 		paymentRepo,
 		paymentOrders{orders: orderService},
@@ -251,6 +260,9 @@ func NewContainer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Co
 
 		ConsultationService: consultService,
 		ConsultationHandler: consulttransport.NewHandler(consultService),
+
+		ContactService: contactService,
+		ContactHandler: contacttransport.NewHandler(contactService),
 
 		AdminService: adminService,
 		AdminHandler: admintransport.NewHandler(adminService),

@@ -26,6 +26,11 @@ const (
 	// order that can no longer be filled, so a refund decision is needed. It
 	// goes to staff, not to the customer.
 	EventPaymentUnreconciled = "order.payment_unreconciled"
+	// EventOrderRefunded and EventOrderPaymentFailed are customer notices: the
+	// money is on its way back, or an attempt did not go through and the order
+	// can still be paid.
+	EventOrderRefunded      = "order.refunded"
+	EventOrderPaymentFailed = "order.payment_failed"
 )
 
 // Service implements the checkout and order-lifecycle workflows.
@@ -493,6 +498,10 @@ func (s *Service) recordLatePayment(ctx context.Context, order *domain.Order, ou
 
 // MarkPaymentFailed records a failed or abandoned payment attempt and returns
 // the reserved stock to the shop.
+//
+// The customer is told, because a silent failure reads as a broken checkout:
+// the cart is already emptied at checkout, so without this notice a declined
+// card leaves them with no way back to the order.
 func (s *Service) MarkPaymentFailed(ctx context.Context, orderID bson.ObjectID, status string) error {
 	order, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
@@ -504,19 +513,31 @@ func (s *Service) MarkPaymentFailed(ctx context.Context, orderID bson.ObjectID, 
 		return nil
 	}
 
-	return s.tx.Run(ctx, func(txCtx context.Context) error {
+	if err := s.tx.Run(ctx, func(txCtx context.Context) error {
 		if err := s.releaseStock(txCtx, order, "Payment "+status); err != nil {
 			return err
 		}
 		return s.orders.Update(txCtx, order.ID, bson.M{"payment_status": domain.PaymentFailed})
-	})
+	}); err != nil {
+		return err
+	}
+
+	s.emit(ctx, EventOrderPaymentFailed, order)
+	return nil
 }
 
-// MarkRefunded records a refund against an order.
+// MarkRefunded records a refund against an order and tells the customer.
 func (s *Service) MarkRefunded(ctx context.Context, orderID bson.ObjectID) error {
+	order, err := s.orders.FindByID(ctx, orderID)
+	if err != nil {
+		return apperror.From(err)
+	}
+
 	if err := s.orders.Update(ctx, orderID, bson.M{"payment_status": domain.PaymentRefunded}); err != nil {
 		return apperror.From(err)
 	}
+
+	s.emit(ctx, EventOrderRefunded, order)
 	return nil
 }
 

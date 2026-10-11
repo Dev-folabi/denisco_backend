@@ -131,8 +131,10 @@ func (h *Handlers) SendEmail(ctx context.Context, task *asynq.Task) error {
 func (h *Handlers) deliver(ctx context.Context, message email, log *slog.Logger) error {
 	if !h.sender.Configured() {
 		// Local development without a provider account: the worker records
-		// what it would have sent rather than failing the task.
+		// what it would have sent rather than failing the task. The unset
+		// variables are named so this line is not mistaken for a delivery.
 		log.Info("email not sent: no provider configured",
+			slog.String("missing", strings.Join(h.sender.Missing(), ",")),
 			slog.String("to", message.to),
 			slog.String("subject", message.subject),
 		)
@@ -199,11 +201,25 @@ func (h *Handlers) PurgeSlots(ctx context.Context, _ *asynq.Task) error {
 }
 
 // isBookingEvent reports whether the farm should receive a copy.
+//
+// This is an explicit list rather than a `consultation.` prefix match: a
+// refund or a declined fee is between the customer and their bank, and the
+// farm has nothing to act on.
 func isBookingEvent(eventType string) bool {
-	return strings.HasPrefix(eventType, "consultation.")
+	switch eventType {
+	case outbox.TypeConsultationBooked, outbox.TypeConsultationCancelled, outbox.TypeConsultationStatus:
+		return true
+	default:
+		return false
+	}
 }
 
 // isStaffEvent reports whether an event is addressed to the farm alone.
 func isStaffEvent(eventType string) bool {
-	return eventType == outbox.TypeOrderPaymentUnreconciled
+	switch eventType {
+	case outbox.TypeOrderPaymentUnreconciled, outbox.TypeContactReceived:
+		return true
+	default:
+		return false
+	}
 }

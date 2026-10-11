@@ -35,9 +35,13 @@ func TestRenderCoversEveryNotification(t *testing.T) {
 		outbox.TypeOrderPaid,
 		outbox.TypeOrderStatusChanged,
 		outbox.TypeOrderCancelled,
+		outbox.TypeOrderRefunded,
+		outbox.TypeOrderPaymentFailed,
 		outbox.TypeConsultationBooked,
 		outbox.TypeConsultationCancelled,
 		outbox.TypeConsultationStatus,
+		outbox.TypeConsultationRefunded,
+		outbox.TypeConsultationPaymentFailed,
 	}
 
 	data := map[string]any{
@@ -51,6 +55,7 @@ func TestRenderCoversEveryNotification(t *testing.T) {
 		"type_name":    "Poultry Health & Management Advisory",
 		"date":         "2026-10-10",
 		"time":         "09:00 AM",
+		"amount":       float64(1_500_000),
 		"reset_url":    "https://denisco.test/reset-password?token=abc",
 	}
 
@@ -159,5 +164,73 @@ func TestLatePaymentNoticeGoesToStaffNotTheCustomer(t *testing.T) {
 	}
 	if !strings.Contains(message.html, "DG-123456") || !strings.Contains(message.html, "₦19,500") {
 		t.Errorf("the notice does not name the order and the amount:\n%s", message.html)
+	}
+}
+
+func TestRefundAndDeclineNoticesAreTheCustomerOnly(t *testing.T) {
+	// These used to be invisible: a refund went through the dashboard with no
+	// word to the customer, and a declined card left the order looking stuck.
+	// Both are addressed to the customer, and neither is copied to the farm —
+	// unlike a booking, they need no action there.
+	cases := map[string]map[string]any{
+		outbox.TypeOrderRefunded: {
+			"email":        "customer@example.com",
+			"name":         "Ada Obi",
+			"order_number": "DG-123456",
+			"total":        float64(900_000),
+		},
+		outbox.TypeOrderPaymentFailed: {
+			"email":        "customer@example.com",
+			"name":         "Ada Obi",
+			"order_number": "DG-123456",
+			"total":        float64(900_000),
+		},
+		outbox.TypeConsultationRefunded: {
+			"email":     "customer@example.com",
+			"name":      "Ada Obi",
+			"reference": "CB-12345",
+			"type_name": "Poultry Health & Management Advisory",
+			"amount":    float64(1_500_000),
+		},
+		outbox.TypeConsultationPaymentFailed: {
+			"email":     "customer@example.com",
+			"name":      "Ada Obi",
+			"reference": "CB-12345",
+			"type_name": "Poultry Health & Management Advisory",
+			"date":      "2026-10-10",
+			"time":      "09:00 AM",
+			"amount":    float64(1_500_000),
+		},
+	}
+
+	for eventType, data := range cases {
+		message, ok := Render(eventType, data, "https://denisco.test")
+		if !ok {
+			t.Fatalf("Render(%q) produced no email", eventType)
+		}
+		if message.to != "customer@example.com" {
+			t.Errorf("Render(%q) recipient = %q, want the customer", eventType, message.to)
+		}
+		if isStaffEvent(eventType) {
+			t.Errorf("%q is treated as a staff event; it is a customer notice", eventType)
+		}
+		if isBookingEvent(eventType) {
+			t.Errorf("%q would be copied to the farm; a fee notice is the customer's alone", eventType)
+		}
+	}
+}
+
+func TestBookingNoticesAreStillCopiedToTheFarm(t *testing.T) {
+	// The carve-out for fee notices must not take the appointment notices with
+	// it: staff still want to hear about a booking, a cancellation and a
+	// status change.
+	for _, eventType := range []string{
+		outbox.TypeConsultationBooked,
+		outbox.TypeConsultationCancelled,
+		outbox.TypeConsultationStatus,
+	} {
+		if !isBookingEvent(eventType) {
+			t.Errorf("%q would no longer be copied to the farm", eventType)
+		}
 	}
 }

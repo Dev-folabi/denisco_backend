@@ -105,7 +105,12 @@ type View struct {
 	PaymentStatus  string       `json:"payment_status"`
 	PaymentRef     string       `json:"payment_ref,omitempty"`
 	PaymentMethod  string       `json:"payment_method,omitempty"`
-	ItemCount      int          `json:"item_count"`
+	// Payable says whether another payment attempt may be started. A declined
+	// card leaves it true so the customer can retry; a paid, refunded or
+	// cancelled order leaves it false. The web account pages read this rather
+	// than re-deriving the rule from payment_status.
+	Payable   bool `json:"payable"`
+	ItemCount int  `json:"item_count"`
 	// NeedsReconciliation flags an order whose late payment could not be
 	// honoured from stock, so the dashboard can surface it for a refund.
 	NeedsReconciliation  bool    `json:"needs_reconciliation"`
@@ -155,6 +160,7 @@ func newView(order *domain.Order) View {
 		PaymentStatus:  order.PaymentStatus,
 		PaymentRef:     order.PaymentRef,
 		PaymentMethod:  order.PaymentMethod,
+		Payable:        order.IsPayable(),
 		ItemCount:      count,
 
 		NeedsReconciliation:  order.NeedsReconciliation,

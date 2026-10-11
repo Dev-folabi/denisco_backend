@@ -122,6 +122,10 @@ type RateLimitConfig struct {
 	LoginPerMin   int
 	SignupPerHour int
 	ResetPerHour  int
+	// ContactPerHour bounds how many messages one address can send through
+	// the contact form. It is the one anonymous endpoint that costs a human
+	// a reading, so it gets a budget of its own rather than the general one.
+	ContactPerHour int
 }
 
 type LogConfig struct {
@@ -224,11 +228,11 @@ func Load() (Config, error) {
 			PasswordMaxLength: getInt("PASSWORD_MAX_LENGTH", 72), // bcrypt input limit
 		},
 		RateLimit: RateLimitConfig{
-			Enabled:       getBool("RATE_LIMIT_ENABLED", true),
-			GeneralPerMin: getInt("RATE_LIMIT_GENERAL_PER_MIN", 120),
-			LoginPerMin:   getInt("RATE_LIMIT_LOGIN_PER_MIN", 5),
-			SignupPerHour: getInt("RATE_LIMIT_SIGNUP_PER_HOUR", 10),
-			ResetPerHour:  getInt("RATE_LIMIT_RESET_PER_HOUR", 3),
+			GeneralPerMin:  getInt("RATE_LIMIT_GENERAL_PER_MIN", 120),
+			LoginPerMin:    getInt("RATE_LIMIT_LOGIN_PER_MIN", 5),
+			SignupPerHour:  getInt("RATE_LIMIT_SIGNUP_PER_HOUR", 10),
+			ResetPerHour:   getInt("RATE_LIMIT_RESET_PER_HOUR", 3),
+			ContactPerHour: getInt("RATE_LIMIT_CONTACT_PER_HOUR", 5),
 		},
 		Log: LogConfig{
 			Level: getString("LOG_LEVEL", "info"),

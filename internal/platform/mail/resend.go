@@ -38,6 +38,10 @@ type Message struct {
 type Sender interface {
 	Send(ctx context.Context, message Message) error
 	Configured() bool
+	// Missing names the configuration that still has to be set. It is empty
+	// exactly when Configured reports true, and it exists so a process can
+	// say *what* is missing rather than only that something is.
+	Missing() []string
 }
 
 // Resend is the Resend-backed Sender.
@@ -61,6 +65,21 @@ func NewResend(cfg config.ResendConfig) *Resend {
 // Configured reports whether email can actually be delivered.
 func (r *Resend) Configured() bool {
 	return r.apiKey != "" && r.from != ""
+}
+
+// Missing names the environment variables that still have to be set, so a
+// startup log can point straight at them. A blank sender is the common case
+// during local development and the reason `Send` falls back to logging, which
+// is easy to mistake for a delivery failure.
+func (r *Resend) Missing() []string {
+	var missing []string
+	if r.apiKey == "" {
+		missing = append(missing, "RESEND_API_KEY")
+	}
+	if r.from == "" {
+		missing = append(missing, "EMAIL_FROM")
+	}
+	return missing
 }
 
 // Send delivers one message.

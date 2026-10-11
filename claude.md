@@ -499,7 +499,7 @@ type Order struct {
 >
 > Also delivered: `scripts/seed-consultations`, the audit trail extended to
 > consultation changes with the actor's email resolved at read time, and the
-> OpenAPI spec grown to 57 paths.
+> OpenAPI spec grown to 58 paths (57, then `POST /api/v1/contact`).
 
 ---
 
@@ -658,3 +658,42 @@ repository:
   fee paid through the provider stub, replayed webhook included; a declined fee
   keeping its slot and being retried; the guest capability rule; and both
   branches of product removal. The suite is 35 integration tests.
+
+## 13. Email notifications (2026-10-11)
+
+Four gaps in the notification story, all of them cases where the farm or the
+customer was left waiting on news that the system already had.
+
+- **Refunds and declined payments are announced.** `orders.Service.MarkPaymentFailed`
+  and `MarkRefunded` now emit `order.payment_failed` and `order.refunded`;
+  `consultations.Service` emits `consultation.payment_failed` and
+  `consultation.refunded` through one `emitBookingEvent` helper. A reload
+  failure logs a warning rather than failing the operation, because the money
+  has already moved and the notice is the lesser half of the transaction.
+  These are emitted from the orders and consultations modules rather than from
+  payments, which keeps payments free of an outbox dependency it does not
+  otherwise need.
+- **Only the customer hears about a failure.** Refunds and fee declines are
+  not copied to staff. `isBookingEvent` was a `consultation.` prefix match,
+  which would have mailed the farm about every refund; it is now an explicit
+  list of the events the farm wants a copy of.
+- **The contact form reaches a person.** `POST /api/v1/contact` accepts a
+  message from a visitor with no account, normalises it, and writes a
+  `contact.received` event addressed to staff. The response is the same
+  whether or not mail is configured — delivery is the outbox's job, and a
+  visitor is never asked to resend because of a fault on the farm's side.
+  The module carries its own hourly limiter (`RATE_LIMIT_CONTACT_PER_HOUR`,
+  default 5) because a flood of these is worse than a flood of catalogue
+  reads. Nothing is stored in MongoDB: an enquiry is a message, not a record.
+- **A missing sender is named, not guessed at.** `mail.Sender` gained
+  `Missing() []string`; the worker logs it at startup and `deliver` logs it
+  before dropping a task, so a misconfigured `EMAIL_FROM` reads as
+  "RESEND_API_KEY and EMAIL_FROM are unset" rather than as a silent no-op.
+- **`Order.View` gained `Payable`**, so a declined card does not leave an
+  order permanently unpayable on the confirmation and order pages.
+- **New tests.** `templates_test.go` asserts every notification event
+  renders and that the customer-only ones never name a staff recipient.
+  The integration suite covers the contact endpoint through the HTTP layer
+  (valid, and each of the four rejections) and asserts the outbox events for
+  a declined order payment, an order refund, a declined consultation fee and
+  a consultation refund. The suite is 39 integration tests.

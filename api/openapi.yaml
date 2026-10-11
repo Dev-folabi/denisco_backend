@@ -35,6 +35,8 @@ tags:
     description: Paystack checkout, verification and webhooks.
   - name: Consultations
     description: Services, availability and bookings.
+  - name: Contact
+    description: The public enquiry form on the contact page.
   - name: Admin
     description: Catalogue, stock, orders, transactions, consultations, customers and the audit trail.
 
@@ -1138,6 +1140,59 @@ paths:
         "409":
           $ref: "#/components/responses/Error"
 
+  /api/v1/contact:
+    post:
+      tags: [Contact]
+      summary: Send an enquiry through the contact form
+      description: >
+        Accepts one message from a visitor with no account and hands it to the
+        farm's staff inbox. The response is the same whether or not the mail
+        provider is reachable, because delivery is the outbox's job — a
+        visitor is never asked to resend because of a fault on the farm's
+        side. The endpoint carries its own hourly limit: a flood of these is
+        worse than a flood of catalogue reads.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, subject, message]
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                  description: The reply address. Must parse as a single address.
+                phone:
+                  type: string
+                  description: An optional alternative contact number.
+                subject:
+                  type: string
+                  maxLength: 150
+                message:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          description: >
+            A field was missing or outside its bounds. The codes are
+            CONTACT_NAME_REQUIRED, CONTACT_EMAIL_INVALID, CONTACT_SUBJECT_REQUIRED,
+            CONTACT_MESSAGE_TOO_SHORT and CONTACT_MESSAGE_TOO_LONG.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/Error"
+
   /api/v1/admin/consultations/types:
     get:
       tags: [Admin]
@@ -1627,6 +1682,13 @@ components:
         payment_ref: { type: string }
         payment_method: { type: string }
         item_count: { type: integer }
+        payable:
+          type: boolean
+          description: >
+            True while the order can still be settled — the payment status is
+            `pending` or `failed` and the order has not been cancelled. The
+            confirmation and order pages key their "pay now" action off it, so
+            a declined card does not leave an order permanently unpayable.
         needs_reconciliation:
           type: boolean
           description: >-
