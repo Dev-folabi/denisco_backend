@@ -53,10 +53,25 @@
 	header_up Host {host}
 }
 
-# The bare domain is canonical (it is what the frontend bundles advertise);
-# www is kept working by redirecting here rather than serving a second copy.
+# www is a full site rather than a redirect block. A redirect-only block
+# breaks HTTP-01: the challenge request follows the redirect into the apex
+# site and Next.js answers 404 instead of Caddy answering with the token,
+# so Let's Encrypt can never validate either name. Serving www as a normal
+# managed site is what let api and admin obtain certificates. Which host is
+# canonical is the frontend's business — its metadata points at the bare
+# domain.
 {$WWW_DOMAIN} {
-	redir https://{$WEB_DOMAIN}{uri} permanent
+	import security
+	encode zstd gzip
+
+	reverse_proxy web:3000 {
+		import upstream
+	}
+
+	log {
+		output stdout
+		format json
+	}
 }
 
 {$WEB_DOMAIN} {
