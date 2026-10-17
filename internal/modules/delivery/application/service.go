@@ -69,8 +69,16 @@ func (s *Service) Options(ctx context.Context) (*Offering, error) {
 		views = append(views, newLocationView(location))
 	}
 
+	// While the switch is off there is nothing on offer, so the areas are
+	// withheld rather than sent for the checkout to ignore: the public view
+	// is a promise of what a customer can be sold, not a preview.
+	enabled := settings.Enabled && len(views) > 0
+	if !enabled {
+		views = nil
+	}
+
 	return &Offering{
-		Enabled:   settings.Enabled && len(views) > 0,
+		Enabled:   enabled,
 		Locations: views,
 	}, nil
 }
