@@ -172,16 +172,16 @@ to DNS-01 — see the comment at the top of the `Caddyfile`.
 ## 4. First deployment
 
 ```bash
-sudo install -d -m 750 -o deploy -g deploy /srv/denisco
-cd /srv/denisco
+sudo install -d -m 750 -o deploy -g deploy /opt/denisco
+cd /opt/denisco
 git clone https://github.com/Dev-folabi/denisco_backend.git
 git clone https://github.com/Dev-folabi/denisco_web.git      # only needed to build locally
 git clone https://github.com/Dev-folabi/denisco_admin.git
 
-# The API's secrets, outside the checkout.
-sudo install -d -m 700 /etc/denisco
-sudo install -m 600 denisco_backend/.env.example /etc/denisco/api.env
-sudo editor /etc/denisco/api.env
+# The API's secrets, beside the checkouts rather than inside one, so no
+# clone can carry them. ENV_FILE in deployments/.env points here.
+sudo install -o deploy -g deploy -m 600 denisco_backend/.env.example /opt/denisco/.env
+sudo editor /opt/denisco/.env
 ```
 
 Production values that are not defaults:
@@ -234,11 +234,11 @@ These are Go programs under `scripts/`, and the VPS has no toolchain, so they
 run in a throwaway container against the production environment file:
 
 ```bash
-cd /srv/denisco/denisco_backend
+cd /opt/denisco/denisco_backend
 
 seed() {
   docker run --rm -it \
-    --env-file /etc/denisco/api.env \
+    --env-file /opt/denisco/.env \
     --volume "$PWD:/src" --workdir /src \
     golang:1.27-alpine go run "$@"
 }
@@ -284,7 +284,7 @@ service back to an earlier SHA.
 To roll back manually on the host:
 
 ```bash
-cd /srv/denisco/denisco_backend/deployments
+cd /opt/denisco/denisco_backend/deployments
 sed -i 's/^API_TAG=.*/API_TAG=<previous-sha>/' .env   # or WORKER_TAG, WEB_TAG, …
 docker compose pull && docker compose up -d
 docker compose ps && curl -fsS https://api.deniscoglobalagroltd.com/health/ready
@@ -373,14 +373,14 @@ archive and a tar of Redis's data, keeps `BACKUP_RETENTION_DAYS` of them and
 prunes the rest.
 
 ```bash
-cd /srv/denisco/denisco_backend/deployments
+cd /opt/denisco/denisco_backend/deployments
 ./backup.sh
 ```
 
 Nightly:
 
 ```cron
-15 2 * * * cd /srv/denisco/denisco_backend/deployments && ./backup.sh >> /var/log/denisco-backup.log 2>&1
+15 2 * * * cd /opt/denisco/denisco_backend/deployments && ./backup.sh >> /var/log/denisco-backup.log 2>&1
 ```
 
 Copy the directory off the host as well — a backup on the disk that fails is
@@ -430,7 +430,8 @@ database name before doing anything.
 
 ## 9. Secrets
 
-- `/etc/denisco/api.env` — root-owned, mode 600, never in the repository.
+- `/opt/denisco/.env` — deploy-owned, mode 600, beside the checkouts rather
+  than inside one, never in the repository.
 - Rotating `JWT_ED25519_SEED` or `JWT_ACCESS_SECRET` invalidates every access
   token immediately; refresh tokens survive, so customers are signed back in
   on their next refresh rather than logged out.

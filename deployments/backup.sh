@@ -13,7 +13,7 @@
 #
 # As a nightly cron entry, writing its output where it can be read afterwards:
 #
-#   15 2 * * * cd /srv/denisco/denisco_backend/deployments \
+#   15 2 * * * cd /opt/denisco/denisco_backend/deployments \
 #       && ./backup.sh >> /var/log/denisco-backup.log 2>&1
 #
 # Atlas keeps its own continuous backups; this exists so a restore does not

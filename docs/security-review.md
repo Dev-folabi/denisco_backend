@@ -149,7 +149,7 @@ stay true in production.
 ## Secrets and logging
 
 - Configuration comes from the environment; `.env` is git-ignored, and the
-  production file lives outside the checkout at `/etc/denisco/api.env`, root-
+  production file lives outside every checkout at `/opt/denisco/.env`, deploy-
   owned and mode 600.
 - `MONGODB_URI` carries credentials and is never logged — the connection logs
   the database name only. The backup script reads it from the environment file
