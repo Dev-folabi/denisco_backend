@@ -57,12 +57,14 @@ repeatedly by the OOM killer shows up as a climbing restart count in
 
 ## 2. Host preparation
 
-Run as root once, on a fresh Debian or Ubuntu host.
+Run as root once. These notes were written for Debian or Ubuntu; the host in
+use runs **AlmaLinux 9.8**, so the firewall section below gives both paths.
 
 ```bash
 # A login that is not root.
 adduser --gecos "" deploy
-usermod -aG sudo deploy
+usermod -aG sudo deploy      # Debian/Ubuntu; on AlmaLinux/RHEL: usermod -aG wheel deploy
+usermod -aG docker deploy    # the deploy user runs docker compose directly
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 # Paste the operator's public key — key authentication only, no passwords.
 install -m 600 -o deploy -g deploy /dev/stdin /home/deploy/.ssh/authorized_keys <<'KEY'
@@ -84,12 +86,13 @@ ClientAliveInterval 300
 ```
 
 ```bash
-sshd -t && systemctl reload ssh     # test the config before reloading
+sshd -t && systemctl reload ssh     # Debian/Ubuntu
+sshd -t && systemctl reload sshd    # AlmaLinux/RHEL
 ```
 
 Keep the existing session open until a second one logs in successfully.
 
-Firewall — only SSH and the web ports:
+Firewall — only SSH and the web ports. Debian/Ubuntu:
 
 ```bash
 apt-get install -y ufw fail2ban
@@ -100,6 +103,19 @@ ufw allow 80,443/tcp
 ufw allow 443/udp                  # HTTP/3
 ufw enable
 systemctl enable --now fail2ban    # ships with an sshd jail
+```
+
+AlmaLinux/RHEL (firewalld is already running; fail2ban comes from EPEL):
+
+```bash
+firewall-cmd --permanent --add-service=ssh
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --permanent --add-port=443/udp      # HTTP/3
+firewall-cmd --reload
+
+dnf install -y epel-release && dnf install -y fail2ban
+systemctl enable --now fail2ban
 ```
 
 Docker publishes container ports by writing its own iptables rules, which ufw
@@ -125,14 +141,15 @@ apt-get install -y unattended-upgrades
 
 ## 3. Cloudflare DNS
 
-Three records, all proxied (orange cloud), pointing at the VPS address:
+Four records, all proxied (orange cloud), pointing at the VPS address. The
+apex is canonical: `www` is served by Caddy as a 301 back to it:
 
 | Type | Name | Content | Proxy |
 |---|---|---|---|
+| A | `@` (apex) | VPS IPv4 | Proxied |
 | A | `www` | VPS IPv4 | Proxied |
 | A | `admin` | VPS IPv4 | Proxied |
 | A | `api` | VPS IPv4 | Proxied |
-| CNAME | `@` | `www.denisco.com` | Proxied |
 
 Settings that matter:
 
@@ -140,10 +157,10 @@ Settings that matter:
   certificate, so anything less would be either a broken chain or an
   unencrypted hop.
 - **Always Use HTTPS: on.** Caddy also redirects, this just saves the trip.
-- **Caching: bypass `api.denisco.com`.** A cached `POST` response or a cached
+- **Caching: bypass `api.deniscoglobalagroltd.com`.** A cached `POST` response or a cached
   authenticated `GET` would serve one customer another's data. The site and
   dashboard are Next.js apps that set their own cache headers.
-- **WAF/Bot Fight Mode: keep it off `api.denisco.com`**, or Paystack's
+- **WAF/Bot Fight Mode: keep it off `api.deniscoglobalagroltd.com`**, or Paystack's
   webhook deliveries will be challenged and silently dropped.
 
 Issuing certificates works through the proxy over HTTP-01. If a wildcard
@@ -171,11 +188,11 @@ Production values that are not defaults:
 
 ```ini
 APP_ENV=production
-API_BASE_URL=https://api.denisco.com
-WEB_ORIGIN=https://www.denisco.com
-ADMIN_ORIGIN=https://admin.denisco.com
+API_BASE_URL=https://api.deniscoglobalagroltd.com
+WEB_ORIGIN=https://deniscoglobalagroltd.com
+ADMIN_ORIGIN=https://admin.deniscoglobalagroltd.com
 COOKIE_SECURE=true                 # refused at startup otherwise
-COOKIE_DOMAIN=.denisco.com         # so api./www. share the refresh cookie
+COOKIE_DOMAIN=.deniscoglobalagroltd.com   # so api. and the site share the refresh cookie
 COOKIE_SAMESITE=lax
 CLIENT_IP_HEADER=X-Real-IP          # set by Caddy from {client_ip}; see §6
 AUTH_EXPOSE_RESET_TOKEN=false
@@ -186,7 +203,7 @@ JWT_ACCESS_SECRET=                 # openssl rand -base64 48
 MONGODB_URI=                       # Atlas SRV string, least-privilege user
 PAYSTACK_SECRET_KEY=               # live key
 RESEND_API_KEY=
-ADMIN_NOTIFICATION_EMAIL=farm@denisco.com
+ADMIN_NOTIFICATION_EMAIL=deniscoglobalagroltd@gmail.com
 ```
 
 The Atlas user needs `readWrite` on the one database and nothing else, and the
@@ -202,7 +219,7 @@ cp .env.example .env && editor .env     # hostnames, registry, TAG, public URLs
 docker compose pull                     # images from CI
 docker compose up -d
 docker compose ps                       # every service healthy?
-curl -fsS https://api.denisco.com/health/ready
+curl -fsS https://api.deniscoglobalagroltd.com/health/ready
 ```
 
 To build on the host instead of pulling (slow, and memory-hungry for the
@@ -226,7 +243,7 @@ seed() {
     golang:1.27-alpine go run "$@"
 }
 
-seed ./scripts/seed-admin -email admin@denisco.com
+seed ./scripts/seed-admin -email deniscoglobalagroltd@gmail.com
 seed ./scripts/seed-catalogue
 seed ./scripts/seed-consultations
 ```
@@ -239,18 +256,43 @@ are idempotent, so re-running them updates rather than duplicates.
 ## 5. Releases and rollback
 
 CI builds and pushes `denisco-api`, `denisco-worker`, `denisco-outbox`,
-`denisco-web` and `denisco-admin`, tagged with the commit SHA.
+`denisco-web` and `denisco-admin`, tagged with the commit SHA. A push to
+`main` then deploys automatically, each repository restarting only its own
+services through `deployments/deploy.sh`:
+
+| Repository | Services restarted |
+|---|---|
+| `denisco_backend` | `api`, `worker`, `outbox` |
+| `denisco_web` | `web` |
+| `denisco_admin` | `admin` |
+
+The deploy job in each workflow needs three things configured on GitHub:
+
+- **Secret `VPS_SSH_KEY`** — a private key whose public half is in
+  `deploy`'s `authorized_keys` on the VPS.
+- **Variable `VPS_HOST`** — the VPS address (or hostname).
+- **Variable `DEPLOY_ENABLED`** — set it to `true` to turn the deploy job
+  on. Until then the job is skipped and CI only builds and publishes.
+
+`deploy.sh` writes the new SHA tag into `.env` for the affected services,
+pulls, restarts only those containers, and health-checks them. On failure it
+restores the previous tags and restarts again, so a bad release costs a
+minute rather than an outage. The deploy jobs also appear under each
+workflow's "Run workflow" button, where the optional `tag` input rolls any
+service back to an earlier SHA.
+
+To roll back manually on the host:
 
 ```bash
 cd /srv/denisco/denisco_backend/deployments
-sed -i 's/^TAG=.*/TAG=<sha>/' .env
+sed -i 's/^API_TAG=.*/API_TAG=<previous-sha>/' .env   # or WORKER_TAG, WEB_TAG, …
 docker compose pull && docker compose up -d
-docker compose ps && curl -fsS https://api.denisco.com/health/ready
+docker compose ps && curl -fsS https://api.deniscoglobalagroltd.com/health/ready
 ```
 
-A rollback is the same three lines with the previous SHA. Because the API
-shuts down gracefully — it stops accepting connections, finishes the requests
-in flight, then exits — a release drops no in-flight checkout.
+Because the API shuts down gracefully — it stops accepting connections,
+finishes the requests in flight, then exits — a release drops no in-flight
+checkout.
 
 Database migrations are not part of a release: indexes are created on startup
 and are idempotent.
@@ -267,8 +309,8 @@ docker image prune -af --filter "until=720h"
 
 | Check | Command |
 |---|---|
-| Liveness | `curl -fsS https://api.denisco.com/healthz` |
-| Readiness (Mongo + Redis) | `curl -fsS https://api.denisco.com/health/ready` |
+| Liveness | `curl -fsS https://api.deniscoglobalagroltd.com/healthz` |
+| Readiness (Mongo + Redis) | `curl -fsS https://api.deniscoglobalagroltd.com/health/ready` |
 | Container state | `docker compose ps` |
 | Memory | `docker stats --no-stream` |
 | Logs (one service) | `docker compose logs -f --tail=100 api` |
@@ -302,7 +344,7 @@ shipped and someone has to restock or refund. Each one emails
 
 ```bash
 curl -fsS -H "Authorization: Bearer $ADMIN_TOKEN" \
-  'https://api.denisco.com/api/v1/admin/orders?needs_reconciliation=true'
+  'https://api.deniscoglobalagroltd.com/api/v1/admin/orders?needs_reconciliation=true'
 ```
 
 The admin dashboard does not yet surface that filter — the prototype, which is

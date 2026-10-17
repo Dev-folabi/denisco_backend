@@ -33,6 +33,7 @@ services:
       - caddy-config:/config
     environment:
       WEB_DOMAIN: ${WEB_DOMAIN:?set WEB_DOMAIN}
+      WWW_DOMAIN: ${WWW_DOMAIN:?set WWW_DOMAIN}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN}
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}

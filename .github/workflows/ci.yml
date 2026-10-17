@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (e.g. sha-<full>); leave empty for this commit"
+        required: false
 
 permissions:
   contents: read
@@ -127,7 +132,8 @@ jobs:
         working-directory: deployments
         run: |
           docker run --rm \
-            --env WEB_DOMAIN=www.example.com \
+            --env WEB_DOMAIN=example.com \
+            --env WWW_DOMAIN=www.example.com \
             --env ADMIN_DOMAIN=admin.example.com \
             --env API_DOMAIN=api.example.com \
             --env ACME_EMAIL=ops@example.com \
@@ -138,5 +144,88 @@ jobs:
         working-directory: deployments
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck backup.sh restore.sh
-          bash -n backup.sh restore.sh
+          shellcheck backup.sh restore.sh deploy.sh
+          bash -n backup.sh restore.sh deploy.sh
+
+  publish:
+    name: Build and push GHCR images
+    needs: [verify, integration]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - image: denisco-api
+            dockerfile: deployments/Dockerfile.api
+          - image: denisco-worker
+            dockerfile: deployments/Dockerfile.worker
+          - image: denisco-outbox
+            dockerfile: deployments/Dockerfile.outbox-publisher
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/dev-folabi/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy to the VPS
+    needs: [verify, integration, publish]
+    # Runs for a push to main and for a manual dispatch (which takes an
+    # optional image tag, for rolling back to a previous release). The VPS
+    # itself must already be provisioned; DEPLOY_ENABLED is the switch.
+    if: |
+      always() &&
+      needs.verify.result == 'success' &&
+      needs.integration.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-denisco-backend
+      cancel-in-progress: false
+
+    steps:
+      - name: Deploy api, worker and outbox
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          TAG: ${{ github.event.inputs.tag || format('sha-{0}', github.sha) }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$VPS_HOST" ]; then
+            echo "VPS_SSH_KEY secret and VPS_HOST variable are required" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=accept-new "deploy@$VPS_HOST" \
+            "cd /srv/denisco/denisco_backend/deployments && ./deploy.sh api,worker,outbox '$TAG'"

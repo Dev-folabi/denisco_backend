@@ -94,13 +94,16 @@ fi
 # ---------------------------------------------------------------------------
 # Manifest, so a restore knows what it is looking at.
 # ---------------------------------------------------------------------------
+# shellcheck disable=SC2012
+MANIFEST_FILES="$(cd "$TARGET" && ls -lh | tail -n +2)"
+
 cat >"$TARGET/manifest.txt" <<EOF
 taken_at:        $STAMP
 host:            $(hostname)
 mongodb_db:      $MONGODB_DATABASE
 image_tag:       ${TAG:-unset}
 files:
-$(cd "$TARGET" && ls -lh | tail -n +2)
+$MANIFEST_FILES
 EOF
 
 chmod 600 "$TARGET"/*

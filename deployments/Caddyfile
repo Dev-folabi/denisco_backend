@@ -53,6 +53,12 @@
 	header_up Host {host}
 }
 
+# The bare domain is canonical (it is what the frontend bundles advertise);
+# www is kept working by redirecting here rather than serving a second copy.
+{$WWW_DOMAIN} {
+	redir https://{$WEB_DOMAIN}{uri} permanent
+}
+
 {$WEB_DOMAIN} {
 	import security
 	encode zstd gzip
