@@ -62,7 +62,10 @@ echo "backup: writing to $TARGET"
 # MongoDB. mongodump runs in a throwaway container so the VPS needs no
 # MongoDB tooling of its own; the URI is handed over through the environment.
 # ---------------------------------------------------------------------------
+# The container runs as the invoking user so the dump is not left root-owned
+# in a directory the cron user then cannot chmod or prune.
 docker run --rm \
+	--user "$(id -u):$(id -g)" \
 	--env "MONGODB_URI=$MONGODB_URI" \
 	--volume "$TARGET:/dump" \
 	mongo:8 \
