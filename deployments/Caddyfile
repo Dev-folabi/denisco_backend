@@ -53,25 +53,13 @@
 	header_up Host {host}
 }
 
-# www is a full site rather than a redirect block. A redirect-only block
-# breaks HTTP-01: the challenge request follows the redirect into the apex
-# site and Next.js answers 404 instead of Caddy answering with the token,
-# so Let's Encrypt can never validate either name. Serving www as a normal
-# managed site is what let api and admin obtain certificates. Which host is
-# canonical is the frontend's business — its metadata points at the bare
-# domain.
+# www redirects to the apex so the storefront has exactly one origin. The
+# API's CORS list holds that origin and the admin's, and a browser on www
+# would send an Origin the API rejects — the admin has a single hostname and
+# never has this problem. Automatic HTTPS still manages a certificate for
+# www: the ACME challenge is answered on port 80 before this redirect runs.
 {$WWW_DOMAIN} {
-	import security
-	encode zstd gzip
-
-	reverse_proxy web:3000 {
-		import upstream
-	}
-
-	log {
-		output stdout
-		format json
-	}
+	redir https://{$WEB_DOMAIN}{uri} permanent
 }
 
 {$WEB_DOMAIN} {
