@@ -53,6 +53,9 @@ type checkoutRequest struct {
 	Phone          string `json:"phone"`
 	DeliveryMethod string `json:"delivery_method"`
 	Address        string `json:"address"`
+	// LocationID names the delivery area for home delivery; the server
+	// reads the fee from it, never from the request.
+	LocationID string `json:"location_id"`
 }
 
 type updateStatusRequest struct {
@@ -79,6 +82,7 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		Phone:          body.Phone,
 		DeliveryMethod: body.DeliveryMethod,
 		Address:        body.Address,
+		LocationID:     body.LocationID,
 	})
 	if err != nil {
 		httpx.Error(w, r, err)

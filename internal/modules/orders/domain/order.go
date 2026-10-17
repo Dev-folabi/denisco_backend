@@ -50,10 +50,6 @@ const (
 	DeliveryPickup = "pickup"
 )
 
-// DeliveryFeeKobo is the flat home-delivery charge from the prototype:
-// ₦2,500. Farm pickup is free.
-const DeliveryFeeKobo int64 = 250_000
-
 // Currency is fixed to naira; amounts are stored in kobo.
 const Currency = "NGN"
 
@@ -104,10 +100,16 @@ type Order struct {
 	Currency       string        `bson:"currency"`
 	DeliveryMethod string        `bson:"delivery_method"`
 	Address        string        `bson:"address,omitempty"`
-	Status         string        `bson:"status"`
-	PaymentStatus  string        `bson:"payment_status"`
-	PaymentRef     string        `bson:"payment_ref,omitempty"`
-	PaymentMethod  string        `bson:"payment_method,omitempty"`
+	// DeliveryLocationID and DeliveryLocationName snapshot the area an order
+	// was sent to, so a later rename or removal does not rewrite history.
+	// Both are empty for farm pickup and for orders placed before areas
+	// existed, which were charged a flat fee.
+	DeliveryLocationID   bson.ObjectID `bson:"delivery_location_id,omitempty"`
+	DeliveryLocationName string        `bson:"delivery_location_name,omitempty"`
+	Status               string        `bson:"status"`
+	PaymentStatus        string        `bson:"payment_status"`
+	PaymentRef           string        `bson:"payment_ref,omitempty"`
+	PaymentMethod        string        `bson:"payment_method,omitempty"`
 	// StockReserved records whether the order still holds a stock
 	// reservation, so release and deduction happen exactly once.
 	StockReserved bool `bson:"stock_reserved"`
@@ -196,14 +198,6 @@ func ValidateDeliveryMethod(method string) error {
 			"delivery_method": "must be \"delivery\" or \"pickup\"",
 		})
 	}
-}
-
-// DeliveryFeeFor returns the fee for a delivery method, in kobo.
-func DeliveryFeeFor(method string) int64 {
-	if method == DeliveryHome {
-		return DeliveryFeeKobo
-	}
-	return 0
 }
 
 // ValidateAddress requires an address for home delivery and ignores it for

@@ -2,16 +2,6 @@ package domain
 
 import "testing"
 
-func TestDeliveryFee(t *testing.T) {
-	// ₦2,500 for home delivery, free for farm pickup.
-	if got := DeliveryFeeFor(DeliveryHome); got != 250_000 {
-		t.Errorf("DeliveryFeeFor(delivery) = %d kobo, want 250000 (₦2,500)", got)
-	}
-	if got := DeliveryFeeFor(DeliveryPickup); got != 0 {
-		t.Errorf("DeliveryFeeFor(pickup) = %d, want 0", got)
-	}
-}
-
 func TestValidateDeliveryMethod(t *testing.T) {
 	for _, method := range []string{DeliveryHome, DeliveryPickup} {
 		if err := ValidateDeliveryMethod(method); err != nil {

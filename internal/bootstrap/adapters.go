@@ -8,6 +8,7 @@ import (
 	cartdomain "github.com/Dev-folabi/denisco_backend/internal/modules/cart/domain"
 	consultapp "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/application"
 	consultdomain "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/domain"
+	deliveryapp "github.com/Dev-folabi/denisco_backend/internal/modules/delivery/application"
 	inventoryapp "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/application"
 	ordersapp "github.com/Dev-folabi/denisco_backend/internal/modules/orders/application"
 	ordersdomain "github.com/Dev-folabi/denisco_backend/internal/modules/orders/domain"
@@ -182,6 +183,27 @@ func (o orderCart) Lines(ctx context.Context, userID bson.ObjectID) ([]ordersapp
 // Clear empties the cart once its contents have become an order.
 func (o orderCart) Clear(ctx context.Context, userID bson.ObjectID) error {
 	return o.carts.Clear(ctx, userID)
+}
+
+// orderDelivery adapts the delivery service to the port the order module
+// declares.
+type orderDelivery struct {
+	delivery *deliveryapp.Service
+}
+
+// ActiveLocation returns a sellable delivery area, or false when it cannot
+// be delivered to — unknown, retired, or the offering switched off.
+func (o orderDelivery) ActiveLocation(ctx context.Context, id bson.ObjectID) (ordersapp.DeliveryLocation, bool, error) {
+	location, ok, err := o.delivery.CheckoutLocation(ctx, id)
+	if err != nil || !ok {
+		return ordersapp.DeliveryLocation{}, false, err
+	}
+
+	return ordersapp.DeliveryLocation{
+		ID:   location.ID,
+		Name: location.Name,
+		Fee:  location.Fee,
+	}, true, nil
 }
 
 // orderStock adapts the inventory service to the port the order module

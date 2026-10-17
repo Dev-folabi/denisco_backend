@@ -367,6 +367,16 @@ func (fakeTx) Run(ctx context.Context, fn func(context.Context) error) error {
 	return fn(ctx)
 }
 
+// fakeDelivery answers checkout's one question about the delivery offering.
+type fakeDelivery struct {
+	locations map[bson.ObjectID]DeliveryLocation
+}
+
+func (f *fakeDelivery) ActiveLocation(_ context.Context, id bson.ObjectID) (DeliveryLocation, bool, error) {
+	location, ok := f.locations[id]
+	return location, ok, nil
+}
+
 // fakeOutbox records emitted events.
 type fakeOutbox struct {
 	mu     sync.Mutex

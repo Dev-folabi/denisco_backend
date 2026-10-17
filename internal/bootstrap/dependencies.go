@@ -26,6 +26,9 @@ import (
 	consulttransport "github.com/Dev-folabi/denisco_backend/internal/modules/consultations/transport"
 	contactapp "github.com/Dev-folabi/denisco_backend/internal/modules/contact/application"
 	contacttransport "github.com/Dev-folabi/denisco_backend/internal/modules/contact/transport"
+	deliveryapp "github.com/Dev-folabi/denisco_backend/internal/modules/delivery/application"
+	deliveryinfra "github.com/Dev-folabi/denisco_backend/internal/modules/delivery/infrastructure"
+	deliverytransport "github.com/Dev-folabi/denisco_backend/internal/modules/delivery/transport"
 	inventoryapp "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/application"
 	inventoryinfra "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/infrastructure"
 	inventorytransport "github.com/Dev-folabi/denisco_backend/internal/modules/inventory/transport"
@@ -95,6 +98,9 @@ type Container struct {
 
 	ContactService *contactapp.Service
 	ContactHandler *contacttransport.Handler
+
+	DeliveryService *deliveryapp.Service
+	DeliveryHandler *deliverytransport.Handler
 
 	AdminService *adminapp.Service
 	AdminHandler *admintransport.Handler
@@ -171,6 +177,15 @@ func NewContainer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Co
 	orderRepo := ordersinfra.NewMongoRepository(db)
 	paymentRepo := paymentsinfra.NewMongoRepository(db)
 
+	// Home delivery. Built before the order module because checkout reads
+	// the chosen area's fee through a small port; the adapter lives in
+	// adapters.go.
+	deliveryService := deliveryapp.NewService(
+		deliveryinfra.NewMongoLocationRepository(db),
+		deliveryinfra.NewMongoSettingsRepository(db),
+		auditor,
+	)
+
 	productService := productsapp.NewService(
 		productRepo,
 		categoryRepo,
@@ -191,6 +206,7 @@ func NewContainer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Co
 		orderCart{carts: cartRepo},
 		orderCatalog{products: productService},
 		orderStock{inventory: inventoryService},
+		orderDelivery{delivery: deliveryService},
 		txRunner,
 		events,
 		auditor,
@@ -263,6 +279,9 @@ func NewContainer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Co
 
 		ContactService: contactService,
 		ContactHandler: contacttransport.NewHandler(contactService),
+
+		DeliveryService: deliveryService,
+		DeliveryHandler: deliverytransport.NewHandler(deliveryService),
 
 		AdminService: adminService,
 		AdminHandler: admintransport.NewHandler(adminService),

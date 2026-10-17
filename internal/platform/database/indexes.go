@@ -161,6 +161,28 @@ func indexDefinitions() []indexSet {
 			},
 		},
 		{
+			collection: CollDeliveryLocations,
+			models: []mongo.IndexModel{
+				{
+					// The lowercased name makes "Wuse" and "wuse" collide, so
+					// an area cannot be listed twice however it is capitalised.
+					Keys:    bson.D{{Key: "name_key", Value: 1}},
+					Options: options.Index().SetName("uniq_name_key").SetUnique(true),
+				},
+			},
+		},
+		{
+			collection: CollSiteSettings,
+			models: []mongo.IndexModel{
+				{
+					// The singleton document's identifier; unique by _id but
+					// named so the intent is legible in the database.
+					Keys:    bson.D{{Key: "_id", Value: 1}},
+					Options: options.Index().SetName("uniq_key"),
+				},
+			},
+		},
+		{
 			collection: CollConsultationTypes,
 			models: []mongo.IndexModel{
 				{

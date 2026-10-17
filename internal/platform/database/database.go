@@ -34,6 +34,8 @@ const (
 	CollConsultationBookings = "consultation_bookings"
 	CollOutboxEvents         = "outbox_events"
 	CollAuditLogs            = "audit_logs"
+	CollDeliveryLocations    = "delivery_locations"
+	CollSiteSettings         = "site_settings"
 )
 
 // Connect builds the client and proves it works with a ping before returning.

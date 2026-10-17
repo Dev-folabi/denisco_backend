@@ -56,6 +56,10 @@ func NewAPIHandler(c *Container) http.Handler {
 			c.CategoryHandler.Mount(api)
 			c.ProductHandler.MountPublic(api)
 
+			// The delivery offering is public: checkout reads the areas and
+			// their fees before a customer has an account behind the choice.
+			c.DeliveryHandler.Mount(api)
+
 			// The contact page is public and has no account behind it, so the
 			// endpoint is anonymous and carries its own rate limit.
 			c.ContactHandler.Mount(api, c.Config.RateLimit)
@@ -95,6 +99,7 @@ func NewAPIHandler(c *Container) http.Handler {
 				c.OrderHandler.MountAdmin(admin)
 				c.PaymentHandler.MountAdmin(admin)
 				c.ConsultationHandler.MountAdmin(admin)
+				c.DeliveryHandler.MountAdmin(admin)
 				c.AdminHandler.Mount(admin)
 			})
 		},

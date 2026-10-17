@@ -60,6 +60,22 @@ type TxRunner interface {
 	Run(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+// DeliveryLocation is the slice of a delivery area checkout needs.
+type DeliveryLocation struct {
+	ID   bson.ObjectID
+	Name string
+	Fee  int64
+}
+
+// DeliveryPort is the order module's view of the home-delivery offering.
+//
+// It returns ok=false for every reason an area cannot be delivered to —
+// unknown, retired, or the whole offering switched off — because those are
+// one answer to a checkout.
+type DeliveryPort interface {
+	ActiveLocation(ctx context.Context, id bson.ObjectID) (DeliveryLocation, bool, error)
+}
+
 // CheckoutInput is a request to turn the cart into an order.
 type CheckoutInput struct {
 	Name           string
@@ -67,6 +83,9 @@ type CheckoutInput struct {
 	Phone          string
 	DeliveryMethod string
 	Address        string
+	// LocationID names the delivery area for home delivery; it is ignored
+	// for farm pickup, which is free and goes to the farm gate.
+	LocationID string
 }
 
 // ItemView is one line on an order.
@@ -101,10 +120,14 @@ type View struct {
 	Currency       string       `json:"currency"`
 	DeliveryMethod string       `json:"delivery_method"`
 	Address        string       `json:"address,omitempty"`
-	Status         string       `json:"status"`
-	PaymentStatus  string       `json:"payment_status"`
-	PaymentRef     string       `json:"payment_ref,omitempty"`
-	PaymentMethod  string       `json:"payment_method,omitempty"`
+	// DeliveryLocationName is the area the order was sent to, kept as a
+	// snapshot; empty for farm pickup and for orders from before areas
+	// existed.
+	DeliveryLocationName string `json:"delivery_location_name,omitempty"`
+	Status               string `json:"status"`
+	PaymentStatus        string `json:"payment_status"`
+	PaymentRef           string `json:"payment_ref,omitempty"`
+	PaymentMethod        string `json:"payment_method,omitempty"`
 	// Payable says whether another payment attempt may be started. A declined
 	// card leaves it true so the customer can retry; a paid, refunded or
 	// cancelled order leaves it false. The web account pages read this rather
@@ -149,19 +172,20 @@ func newView(order *domain.Order) View {
 			Email: order.Customer.Email,
 			Phone: order.Customer.Phone,
 		},
-		Items:          items,
-		Subtotal:       order.Subtotal,
-		DeliveryFee:    order.DeliveryFee,
-		Total:          order.Total,
-		Currency:       order.Currency,
-		DeliveryMethod: order.DeliveryMethod,
-		Address:        order.Address,
-		Status:         order.Status,
-		PaymentStatus:  order.PaymentStatus,
-		PaymentRef:     order.PaymentRef,
-		PaymentMethod:  order.PaymentMethod,
-		Payable:        order.IsPayable(),
-		ItemCount:      count,
+		Items:                items,
+		Subtotal:             order.Subtotal,
+		DeliveryFee:          order.DeliveryFee,
+		Total:                order.Total,
+		Currency:             order.Currency,
+		DeliveryMethod:       order.DeliveryMethod,
+		Address:              order.Address,
+		DeliveryLocationName: order.DeliveryLocationName,
+		Status:               order.Status,
+		PaymentStatus:        order.PaymentStatus,
+		PaymentRef:           order.PaymentRef,
+		PaymentMethod:        order.PaymentMethod,
+		Payable:              order.IsPayable(),
+		ItemCount:            count,
 
 		NeedsReconciliation:  order.NeedsReconciliation,
 		ReconciliationReason: order.ReconciliationReason,

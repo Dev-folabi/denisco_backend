@@ -201,6 +201,8 @@ var collections = []string{
 	database.CollConsultationTypes,
 	database.CollConsultationSlots,
 	database.CollConsultationBookings,
+	database.CollDeliveryLocations,
+	database.CollSiteSettings,
 	database.CollOutboxEvents,
 	database.CollAuditLogs,
 }

@@ -35,13 +35,14 @@ const (
 
 // Service implements the checkout and order-lifecycle workflows.
 type Service struct {
-	orders  domain.Repository
-	carts   CartPort
-	catalog CatalogPort
-	stock   StockPort
-	tx      TxRunner
-	events  outbox.Writer
-	auditor audit.Recorder
+	orders   domain.Repository
+	carts    CartPort
+	catalog  CatalogPort
+	stock    StockPort
+	delivery DeliveryPort
+	tx       TxRunner
+	events   outbox.Writer
+	auditor  audit.Recorder
 }
 
 // NewService wires the order module to its repository and ports.
@@ -50,11 +51,12 @@ func NewService(
 	carts CartPort,
 	catalog CatalogPort,
 	stock StockPort,
+	delivery DeliveryPort,
 	tx TxRunner,
 	events outbox.Writer,
 	auditor audit.Recorder,
 ) *Service {
-	return &Service{orders: orders, carts: carts, catalog: catalog, stock: stock, tx: tx, events: events, auditor: auditor}
+	return &Service{orders: orders, carts: carts, catalog: catalog, stock: stock, delivery: delivery, tx: tx, events: events, auditor: auditor}
 }
 
 // Checkout turns the customer's cart into an order and reserves the stock.
@@ -71,6 +73,24 @@ func (s *Service) Checkout(ctx context.Context, userID bson.ObjectID, input Chec
 	address, err := domain.ValidateAddress(input.DeliveryMethod, input.Address)
 	if err != nil {
 		return nil, err
+	}
+
+	// The fee is read from the chosen delivery area, never from the client.
+	// Farm pickup is free and names no area.
+	var deliveryFee int64
+	var locationID bson.ObjectID
+	var locationName string
+	if input.DeliveryMethod == domain.DeliveryHome {
+		location, ok, err := s.resolveLocation(ctx, input.LocationID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, ErrLocationUnavailable
+		}
+		deliveryFee = location.Fee
+		locationID = location.ID
+		locationName = location.Name
 	}
 
 	customer, err := validateCustomer(input)
@@ -122,8 +142,6 @@ func (s *Service) Checkout(ctx context.Context, userID bson.ObjectID, input Chec
 		subtotal += lineTotal
 	}
 
-	deliveryFee := domain.DeliveryFeeFor(input.DeliveryMethod)
-
 	orderNumber, err := newOrderNumber(ctx, s.orders.NumberExists)
 	if err != nil {
 		return nil, apperror.Internal.Wrap(err)
@@ -131,22 +149,24 @@ func (s *Service) Checkout(ctx context.Context, userID bson.ObjectID, input Chec
 
 	now := time.Now().UTC()
 	order := &domain.Order{
-		ID:             bson.NewObjectID(),
-		OrderNumber:    orderNumber,
-		UserID:         userID,
-		Customer:       customer,
-		Items:          items,
-		Subtotal:       subtotal,
-		DeliveryFee:    deliveryFee,
-		Total:          subtotal + deliveryFee,
-		Currency:       domain.Currency,
-		DeliveryMethod: input.DeliveryMethod,
-		Address:        address,
-		Status:         domain.StatusPending,
-		PaymentStatus:  domain.PaymentPending,
-		StockReserved:  true,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                   bson.NewObjectID(),
+		OrderNumber:          orderNumber,
+		UserID:               userID,
+		Customer:             customer,
+		Items:                items,
+		Subtotal:             subtotal,
+		DeliveryFee:          deliveryFee,
+		Total:                subtotal + deliveryFee,
+		Currency:             domain.Currency,
+		DeliveryMethod:       input.DeliveryMethod,
+		Address:              address,
+		DeliveryLocationID:   locationID,
+		DeliveryLocationName: locationName,
+		Status:               domain.StatusPending,
+		PaymentStatus:        domain.PaymentPending,
+		StockReserved:        true,
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 
 	err = s.tx.Run(ctx, func(txCtx context.Context) error {
@@ -691,6 +711,22 @@ func toViews(orders []domain.Order) []View {
 	return views
 }
 
+// resolveLocation turns the submitted area id into the area checkout will
+// charge for. A missing id is a validation error — the customer has not
+// chosen yet; anything else the port declines is ErrLocationUnavailable.
+func (s *Service) resolveLocation(ctx context.Context, id string) (DeliveryLocation, bool, error) {
+	if strings.TrimSpace(id) == "" {
+		return DeliveryLocation{}, false, ErrLocationRequired
+	}
+
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return DeliveryLocation{}, false, ErrLocationUnavailable
+	}
+
+	return s.delivery.ActiveLocation(ctx, objectID)
+}
+
 // validateCustomer checks the contact details captured at checkout.
 func validateCustomer(input CheckoutInput) (domain.Customer, error) {
 	name := strings.TrimSpace(input.Name)
@@ -714,12 +750,17 @@ func validateCustomer(input CheckoutInput) (domain.Customer, error) {
 	return domain.Customer{Name: name, Email: email, Phone: phone}, nil
 }
 
-// Errors raised by checkout against the cart and catalogue. They repeat the
-// cart module's codes so clients see one vocabulary, without this module
-// importing that one.
+// Errors raised by checkout against the cart, catalogue and delivery
+// offering. They repeat the cart module's codes so clients see one
+// vocabulary, without this module importing that one.
 var (
-	ErrCartEmpty       = apperror.New(http.StatusUnprocessableEntity, "CART_EMPTY", "Your cart is empty.")
-	ErrItemUnavailable = apperror.New(http.StatusUnprocessableEntity, "PRODUCT_UNAVAILABLE", "One of the products in your cart is no longer available.")
+	ErrCartEmpty        = apperror.New(http.StatusUnprocessableEntity, "CART_EMPTY", "Your cart is empty.")
+	ErrItemUnavailable  = apperror.New(http.StatusUnprocessableEntity, "PRODUCT_UNAVAILABLE", "One of the products in your cart is no longer available.")
+	ErrLocationRequired = apperror.New(http.StatusUnprocessableEntity, "DELIVERY_LOCATION_REQUIRED", "Choose a delivery area for home delivery.")
+	// ErrLocationUnavailable covers every reason an area cannot be delivered
+	// to: it does not exist, has been retired, or home delivery has been
+	// switched off entirely. To a customer those are one answer.
+	ErrLocationUnavailable = apperror.New(http.StatusUnprocessableEntity, "DELIVERY_LOCATION_UNAVAILABLE", "That delivery area is not currently available.")
 )
 
 // expiryBatch bounds how many stale orders one sweep handles, so a backlog is

@@ -18,25 +18,30 @@ var errInsufficientStock = apperror.New(http.StatusConflict, "INSUFFICIENT_STOCK
 
 // harness wires the service to in-memory doubles.
 type harness struct {
-	service *Service
-	orders  *fakeOrderRepo
-	carts   *fakeCart
-	catalog *fakeCatalog
-	stock   *fakeStock
-	events  *fakeOutbox
+	service  *Service
+	orders   *fakeOrderRepo
+	carts    *fakeCart
+	catalog  *fakeCatalog
+	stock    *fakeStock
+	delivery *fakeDelivery
+	events   *fakeOutbox
 
-	broiler bson.ObjectID
-	ram     bson.ObjectID
-	user    bson.ObjectID
+	broiler  bson.ObjectID
+	ram      bson.ObjectID
+	user     bson.ObjectID
+	location bson.ObjectID
 }
 
 // newHarness builds a service with two products in stock: 350 broilers at
-// ₦6,500 and 2 rams at ₦120,000, matching the prototype's catalogue.
+// ₦6,500 and 2 rams at ₦120,000, matching the prototype's catalogue. One
+// delivery area is on offer, at ₦3,000 — not the prototype's old flat
+// ₦2,500, so a fee that came from anywhere but the area would fail.
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 
 	broiler := bson.NewObjectID()
 	ram := bson.NewObjectID()
+	location := bson.NewObjectID()
 
 	catalog := &fakeCatalog{products: map[bson.ObjectID]CatalogProduct{
 		broiler: {ID: broiler, Name: "Broiler Chicken", Slug: "broiler-chicken", Unit: "bird", Price: 650_000, Active: true},
@@ -47,20 +52,26 @@ func newHarness(t *testing.T) *harness {
 	stock.available[broiler] = 350
 	stock.available[ram] = 2
 
+	delivery := &fakeDelivery{locations: map[bson.ObjectID]DeliveryLocation{
+		location: {ID: location, Name: "Gwarimpa", Fee: 300_000},
+	}}
+
 	orders := newFakeOrderRepo()
 	carts := newFakeCart()
 	events := &fakeOutbox{}
 
 	return &harness{
-		service: NewService(orders, carts, catalog, stock, fakeTx{}, events, nil),
-		orders:  orders,
-		carts:   carts,
-		catalog: catalog,
-		stock:   stock,
-		events:  events,
-		broiler: broiler,
-		ram:     ram,
-		user:    bson.NewObjectID(),
+		service:  NewService(orders, carts, catalog, stock, delivery, fakeTx{}, events, nil),
+		orders:   orders,
+		carts:    carts,
+		catalog:  catalog,
+		stock:    stock,
+		delivery: delivery,
+		events:   events,
+		broiler:  broiler,
+		ram:      ram,
+		user:     bson.NewObjectID(),
+		location: location,
 	}
 }
 
@@ -103,7 +114,7 @@ func TestCheckoutPricesFromCatalogue(t *testing.T) {
 	}
 }
 
-func TestCheckoutChargesDeliveryFee(t *testing.T) {
+func TestCheckoutChargesTheChosenAreasFee(t *testing.T) {
 	h := newHarness(t)
 	h.carts.set(h.user, CartLine{ProductID: h.broiler, Quantity: 1})
 
@@ -113,17 +124,56 @@ func TestCheckoutChargesDeliveryFee(t *testing.T) {
 		Phone:          "+2348012345678",
 		DeliveryMethod: domain.DeliveryHome,
 		Address:        "12 Sample Close, Gwarimpa, Abuja",
+		LocationID:     h.location.Hex(),
 	})
 	if err != nil {
 		t.Fatalf("Checkout() returned error: %v", err)
 	}
 
-	// ₦6,500 + ₦2,500 delivery.
-	if order.DeliveryFee != 250_000 {
-		t.Errorf("delivery fee = %d, want 250000 kobo (₦2,500)", order.DeliveryFee)
+	// ₦6,500 + the area's own ₦3,000, not any flat fee.
+	if order.DeliveryFee != 300_000 {
+		t.Errorf("delivery fee = %d, want 300000 kobo (₦3,000) from the chosen area", order.DeliveryFee)
 	}
-	if order.Total != 900_000 {
-		t.Errorf("total = %d, want 900000 kobo (₦9,000)", order.Total)
+	if order.Total != 950_000 {
+		t.Errorf("total = %d, want 950000 kobo (₦9,500)", order.Total)
+	}
+	if order.DeliveryLocationName != "Gwarimpa" {
+		t.Errorf("location name = %q, want the area's name snapshotted", order.DeliveryLocationName)
+	}
+}
+
+func TestCheckoutRequiresAnAreaForHomeDelivery(t *testing.T) {
+	h := newHarness(t)
+	h.carts.set(h.user, CartLine{ProductID: h.broiler, Quantity: 1})
+
+	_, err := h.service.Checkout(context.Background(), h.user, CheckoutInput{
+		Name:           "Ada Obi",
+		Email:          "ada@denisco.com",
+		Phone:          "+2348012345678",
+		DeliveryMethod: domain.DeliveryHome,
+		Address:        "12 Sample Close, Gwarimpa, Abuja",
+	})
+	if !errors.Is(err, ErrLocationRequired) {
+		t.Errorf("Checkout() error = %v, want ErrLocationRequired when no area is chosen", err)
+	}
+}
+
+func TestCheckoutRejectsAnAreaThatCannotBeDeliveredTo(t *testing.T) {
+	h := newHarness(t)
+	h.carts.set(h.user, CartLine{ProductID: h.broiler, Quantity: 1})
+
+	// A retired or never-known area: the fake knows nothing about it.
+	retired := bson.NewObjectID()
+	_, err := h.service.Checkout(context.Background(), h.user, CheckoutInput{
+		Name:           "Ada Obi",
+		Email:          "ada@denisco.com",
+		Phone:          "+2348012345678",
+		DeliveryMethod: domain.DeliveryHome,
+		Address:        "12 Sample Close, Gwarimpa, Abuja",
+		LocationID:     retired.Hex(),
+	})
+	if !errors.Is(err, ErrLocationUnavailable) {
+		t.Errorf("Checkout() error = %v, want ErrLocationUnavailable for an area that is not on offer", err)
 	}
 }
 
