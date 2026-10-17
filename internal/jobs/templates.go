@@ -79,8 +79,9 @@ func money(data map[string]any, key string) int64 {
 	}
 }
 
-// Render turns an outbox event into the email it should produce. It returns
-// false for events that have no customer-facing message.
+// Render turns an outbox event into the customer's copy of the news. It
+// returns false for events the customer hears nothing about — staff-only
+// notices and the farm's own view of an event live in RenderAdmin.
 func Render(eventType string, data map[string]any, siteURL string) (email, bool) {
 	siteURL = strings.TrimRight(siteURL, "/")
 
@@ -195,21 +196,6 @@ func Render(eventType string, data map[string]any, siteURL string) (email, bool)
 			text: fmt.Sprintf("We could not take payment of %s for order %s. No money has left your account. The items have been returned to the shop, so you will need to place the order again.", Money(money(data, "total")), number),
 		}, true
 
-	case outbox.TypeOrderPaymentUnreconciled:
-		number := str(data, "order_number")
-		return email{
-			// Left blank on purpose: the worker addresses this one to the
-			// farm, because it asks staff to make a refund decision.
-			subject: "Action needed: late payment on order " + number,
-			html: layout("Late payment needs reconciliation", "Hello,",
-				fmt.Sprintf(`<p>Order <strong>%s</strong> was paid <strong>%s</strong> after its stock reservation had expired, and the items could not be secured again.</p>
-					<p>The order is flagged in the dashboard. Restock the items or refund the payment.</p>`,
-					html.EscapeString(number), Money(money(data, "total"))),
-				button(siteURL+"/orders", "Open Orders")),
-			text: fmt.Sprintf("Order %s was paid %s after its reservation expired and the items could not be secured. Restock the items or refund the payment.",
-				number, Money(money(data, "total"))),
-		}, true
-
 	case outbox.TypeConsultationBooked:
 		details := map[string]string{
 			"Reference": str(data, "reference"),
@@ -307,10 +293,177 @@ func Render(eventType string, data map[string]any, siteURL string) (email, bool)
 				Money(money(data, "amount")), str(data, "type_name"), str(data, "date"), str(data, "time")),
 		}, true
 
+	default:
+		return email{}, false
+	}
+}
+
+// RenderAdmin turns an outbox event into the email the farm receives. It
+// returns false for events the farm has no notice about. The address is
+// left blank: the worker holds ADMIN_NOTIFICATION_EMAIL and fills it in.
+//
+// Two kinds live here. A staff-only notice has no customer copy at all —
+// a website enquiry, or a late payment asking for a decision. A companion
+// notice is the farm's own view of news the customer also receives: a
+// booking, or an order.
+func RenderAdmin(eventType string, data map[string]any, adminURL string) (email, bool) {
+	adminURL = strings.TrimRight(adminURL, "/")
+
+	switch eventType {
+	case outbox.TypeConsultationBooked:
+		reference := str(data, "reference")
+		details := map[string]string{
+			"Reference": reference,
+			"Date":      str(data, "date"),
+			"Time":      str(data, "time"),
+			"From":      str(data, "name") + " <" + str(data, "email") + ">",
+		}
+		if phone := str(data, "phone"); phone != "" {
+			details["Phone"] = phone
+		}
+
+		// The fee decides what the farm does next: a paid booking is
+		// confirmed from the dashboard, an unpaid one is waited on.
+		closing := "The customer is waiting for confirmation."
+		if fee := money(data, "amount"); fee > 0 {
+			details["Fee"] = Money(fee)
+			if str(data, "payment_status") == "paid" {
+				details["Payment"] = "Fee paid"
+				closing = "The fee is paid. Confirm the appointment from the dashboard."
+			} else {
+				details["Payment"] = "Fee awaiting payment"
+				closing = "The slot is held while the fee is outstanding."
+			}
+		}
+
+		return email{
+			subject: "New consultation booked — " + reference,
+			html: layout("New consultation booking", "Hello,",
+				fmt.Sprintf(`<p>A new <strong>%s</strong> has been booked.</p>
+					%s
+					<p style="color:`+colourMuted+`;font-size:13px;">%s</p>`,
+					html.EscapeString(str(data, "type_name")),
+					detailBox(details),
+					html.EscapeString(closing)),
+				button(adminURL+"/consultations", "Open Bookings")),
+			text: fmt.Sprintf("A new %s has been booked under %s for %s at %s.\nCustomer: %s <%s>\n%s",
+				str(data, "type_name"), reference, str(data, "date"), str(data, "time"),
+				str(data, "name"), str(data, "email"), closing),
+		}, true
+
+	case outbox.TypeConsultationCancelled:
+		reference := str(data, "reference")
+		details := map[string]string{
+			"Reference": reference,
+			"Date":      str(data, "date"),
+			"Time":      str(data, "time"),
+			"From":      str(data, "name") + " <" + str(data, "email") + ">",
+		}
+
+		return email{
+			subject: "Consultation cancelled — " + reference,
+			html: layout("Consultation cancelled", "Hello,",
+				fmt.Sprintf(`<p>The <strong>%s</strong> booked under <strong>%s</strong> for %s at %s has been cancelled.</p>
+					%s`,
+					html.EscapeString(str(data, "type_name")),
+					html.EscapeString(reference),
+					html.EscapeString(str(data, "date")),
+					html.EscapeString(str(data, "time")),
+					detailBox(details)),
+				button(adminURL+"/consultations", "Open Bookings")),
+			text: fmt.Sprintf("The %s under %s for %s at %s has been cancelled.\nCustomer: %s <%s>",
+				str(data, "type_name"), reference, str(data, "date"), str(data, "time"),
+				str(data, "name"), str(data, "email")),
+		}, true
+
+	case outbox.TypeConsultationStatus:
+		reference := str(data, "reference")
+		status := str(data, "status")
+		details := map[string]string{
+			"Reference": reference,
+			"Date":      str(data, "date"),
+			"Time":      str(data, "time"),
+			"From":      str(data, "name") + " <" + str(data, "email") + ">",
+		}
+
+		return email{
+			subject: fmt.Sprintf("Booking %s is now %s", reference, status),
+			html: layout("Booking update", "Hello,",
+				fmt.Sprintf(`<p>The <strong>%s</strong> under <strong>%s</strong> for %s at %s is now <strong>%s</strong>.</p>
+					%s`,
+					html.EscapeString(str(data, "type_name")),
+					html.EscapeString(reference),
+					html.EscapeString(str(data, "date")),
+					html.EscapeString(str(data, "time")),
+					html.EscapeString(status),
+					detailBox(details)),
+				button(adminURL+"/consultations", "Open Bookings")),
+			text: fmt.Sprintf("The %s under %s for %s at %s is now %s.\nCustomer: %s <%s>",
+				str(data, "type_name"), reference, str(data, "date"), str(data, "time"), status,
+				str(data, "name"), str(data, "email")),
+		}, true
+
+	case outbox.TypeOrderCreated:
+		number := str(data, "order_number")
+		details := map[string]string{
+			"Order": number,
+			"Total": Money(money(data, "total")),
+			"From":  str(data, "name") + " <" + str(data, "email") + ">",
+		}
+
+		return email{
+			subject: "New order " + number + " from " + str(data, "name"),
+			html: layout("New order received", "Hello,",
+				fmt.Sprintf(`<p>Order <strong>%s</strong> for <strong>%s</strong> has been placed.</p>
+					%s
+					<p style="color:`+colourMuted+`;font-size:13px;">The items are held until payment is confirmed.</p>`,
+					html.EscapeString(number),
+					Money(money(data, "total")),
+					detailBox(details)),
+				button(adminURL+"/orders", "Open Orders")),
+			text: fmt.Sprintf("Order %s from %s <%s> for %s has been placed. The items are held until payment is confirmed.",
+				number, str(data, "name"), str(data, "email"), Money(money(data, "total"))),
+		}, true
+
+	case outbox.TypeOrderPaid:
+		number := str(data, "order_number")
+		details := map[string]string{
+			"Order": number,
+			"Total": Money(money(data, "total")),
+			"From":  str(data, "name") + " <" + str(data, "email") + ">",
+		}
+
+		return email{
+			subject: "Payment confirmed — order " + number,
+			html: layout("Payment confirmed", "Hello,",
+				fmt.Sprintf(`<p>Payment of <strong>%s</strong> for order <strong>%s</strong> has been confirmed.</p>
+					%s
+					<p style="color:`+colourMuted+`;font-size:13px;">The order is ready for processing.</p>`,
+					Money(money(data, "total")),
+					html.EscapeString(number),
+					detailBox(details)),
+				button(adminURL+"/orders", "Open Orders")),
+			text: fmt.Sprintf("Payment of %s for order %s from %s <%s> has been confirmed. The order is ready for processing.",
+				Money(money(data, "total")), number, str(data, "name"), str(data, "email")),
+		}, true
+
+	case outbox.TypeOrderPaymentUnreconciled:
+		number := str(data, "order_number")
+		return email{
+			subject: "Action needed: late payment on order " + number,
+			html: layout("Late payment needs reconciliation", "Hello,",
+				fmt.Sprintf(`<p>Order <strong>%s</strong> was paid <strong>%s</strong> after its stock reservation had expired, and the items could not be secured again.</p>
+					<p>The order is flagged in the dashboard. Restock the items or refund the payment.</p>`,
+					html.EscapeString(number), Money(money(data, "total"))),
+				button(adminURL+"/orders", "Open Orders")),
+			text: fmt.Sprintf("Order %s was paid %s after its reservation expired and the items could not be secured. Restock the items or refund the payment.",
+				number, Money(money(data, "total"))),
+		}, true
+
 	case outbox.TypeContactReceived:
-		// Addressed to the farm by the worker, like the late-payment notice.
-		// A visitor has written in and is waiting on a reply, so the sender's
-		// address is quoted in the body rather than being the recipient.
+		// A visitor has written in and is waiting on a reply, so the
+		// sender's address is quoted in the body rather than being the
+		// recipient.
 		name := str(data, "name")
 		emailAddress := str(data, "email")
 		phone := str(data, "phone")
@@ -359,9 +512,9 @@ func detailBox(rows map[string]string) string {
 	b.WriteString(`<tr><td style="padding:16px 18px;">`)
 
 	// A fixed order keeps the panel stable across sends, whichever template
-	// filled it: bookings carry a reference and a time, an enquiry carries a
-	// sender and a subject.
-	for _, key := range []string{"Reference", "Date", "Time", "Fee", "From", "Phone", "Subject"} {
+	// filled it: a booking carries a reference and a time, an order its
+	// number and amount, an enquiry a sender and a subject.
+	for _, key := range []string{"Reference", "Date", "Time", "Fee", "Payment", "Order", "Total", "From", "Phone", "Subject"} {
 		value, ok := rows[key]
 		if !ok || value == "" {
 			continue

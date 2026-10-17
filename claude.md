@@ -563,7 +563,7 @@ services:
 - Total target: < 1.5 GB (leave headroom)
 
 ### Environment Variables
-- [x] Create production `.env` from `.env.example` — `.env.example` documents every API variable and `deployments/.env.example` the stack variables Compose substitutes (hostnames, image tag, public URLs). The production values, including the secrets, are written at deploy time into `/etc/denisco/api.env` on the VPS; §4 of `deployments/README.md` lists the ones that differ from the defaults.
+- [x] Create production `.env` from `.env.example` — `.env.example` documents every API variable and `deployments/.env.example` the stack variables Compose substitutes (hostnames, image tag, public URLs). The production values, including the secrets, are written at deploy time into `/opt/denisco/.env` on the VPS — beside the repository checkout, pointed at by `ENV_FILE` — and §4 of `deployments/README.md` lists the ones that differ from the defaults.
 
 ---
 
@@ -697,3 +697,40 @@ customer was left waiting on news that the system already had.
   (valid, and each of the four rejections) and asserts the outbox events for
   a declined order payment, an order refund, a declined consultation fee and
   a consultation refund. The suite is 39 integration tests.
+
+## 14. Farm notices for bookings and orders (2026-10-17)
+
+- **`RenderAdmin(eventType, data, adminURL)`** is the farm's side of every
+  notification. For `consultation.booked|cancelled|status_changed` and
+  `order.created|order.paid` both it and `Render` produce a message, and
+  `SendEmail` sends the first to the customer and the second to
+  `ADMIN_NOTIFICATION_EMAIL`; the orders previously reached the customer
+  alone. The templates are written for staff — subject "New consultation
+  booked — CB-…", the customer's contact details and fee standing in the
+  body, a button into `ADMIN_ORIGIN`.
+- **`isBookingEvent` and `isStaffEvent` are gone.** Which events reach the
+  farm is now exactly the set `RenderAdmin` renders; the "[Farm] " prefix
+  copy is replaced by the templates above. `NewHandlers` takes the admin
+  URL as its own argument, wired from `CORS.AdminOrigin`.
+- **Ordering inside `SendEmail` is deliberate.** The customer's copy goes
+  first: if the provider refuses it the task retries and the farm's notice
+  waits, rather than the farm hearing of an order the customer never did.
+  Once the customer's copy is away, a failing farm notice is logged and
+  let go — failing the task would resend the customer's. When the farm's
+  notice is the only copy (an enquiry, a late payment) it retries like any
+  other mail, and a booking with no address anywhere still reaches the
+  farm.
+- **`Render` covers customer mail only.** The contact and late-payment
+  templates moved across, which fixes a real link: the late-payment
+  notice's button pointed at the customer site's `/orders` — a 404 — and
+  points at the dashboard now.
+- **The deployment's paths moved with the VPS reorganisation:** the stack
+  at `/opt/denisco`, the API secrets at `/opt/denisco/.env` (`ENV_FILE`),
+  with the CI deploy step, runbooks, backup cron example and
+  `.env.example` following.
+- **New tests.** `handlers_test.go` drives real tasks through `SendEmail`
+  with a recording sender — both sides for a booking and an order, one
+  side for a refund or decline, the farm alone for a staff notice, the
+  farm still notified without a customer address, and no failure when
+  `ADMIN_NOTIFICATION_EMAIL` is unset. The template tests assert the
+  dashboard links, the escaping, and that refunds render no farm notice.

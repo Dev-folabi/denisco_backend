@@ -146,21 +146,32 @@ func TestLatePaymentNoticeGoesToStaffNotTheCustomer(t *testing.T) {
 	// The customer's address is on the event, as it is on every order event.
 	// This one must not use it: nobody should be told their order is on its
 	// way when the farm has yet to decide between restocking and refunding.
-	message, ok := Render(outbox.TypeOrderPaymentUnreconciled, map[string]any{
+	// Render has no copy of this notice at all — only the farm's version
+	// exists, and it links to the dashboard, not to the customer's account.
+	data := map[string]any{
 		"email":        "customer@example.com",
 		"name":         "Ada Obi",
 		"order_number": "DG-123456",
 		"total":        float64(1_950_000),
-	}, "https://admin.denisco.test")
+	}
+
+	if _, ok := Render(outbox.TypeOrderPaymentUnreconciled, data, "https://denisco.test"); ok {
+		t.Error("Render() produced a customer copy of the late-payment notice")
+	}
+
+	message, ok := RenderAdmin(outbox.TypeOrderPaymentUnreconciled, data, "https://admin.denisco.test/")
 	if !ok {
-		t.Fatal("Render() produced no email for a late payment")
+		t.Fatal("RenderAdmin() produced no email for a late payment")
 	}
 
 	if message.to != "" {
 		t.Errorf("recipient = %q, want it left to the worker's admin address", message.to)
 	}
-	if !isStaffEvent(outbox.TypeOrderPaymentUnreconciled) {
-		t.Error("the late-payment notice is not treated as a staff event")
+	if !strings.Contains(message.html, "https://admin.denisco.test/orders") {
+		t.Errorf("the notice does not link to the dashboard:\n%s", message.html)
+	}
+	if strings.Contains(message.html, "https://denisco.test/") {
+		t.Error("the notice links into the customer's site")
 	}
 	if !strings.Contains(message.html, "DG-123456") || !strings.Contains(message.html, "₦19,500") {
 		t.Errorf("the notice does not name the order and the amount:\n%s", message.html)
@@ -211,26 +222,136 @@ func TestRefundAndDeclineNoticesAreTheCustomerOnly(t *testing.T) {
 		if message.to != "customer@example.com" {
 			t.Errorf("Render(%q) recipient = %q, want the customer", eventType, message.to)
 		}
-		if isStaffEvent(eventType) {
-			t.Errorf("%q is treated as a staff event; it is a customer notice", eventType)
-		}
-		if isBookingEvent(eventType) {
-			t.Errorf("%q would be copied to the farm; a fee notice is the customer's alone", eventType)
+		if _, ok := RenderAdmin(eventType, data, "https://admin.denisco.test"); ok {
+			t.Errorf("RenderAdmin(%q) produced a farm notice; a fee notice is the customer's alone", eventType)
 		}
 	}
 }
 
-func TestBookingNoticesAreStillCopiedToTheFarm(t *testing.T) {
-	// The carve-out for fee notices must not take the appointment notices with
-	// it: staff still want to hear about a booking, a cancellation and a
-	// status change.
-	for _, eventType := range []string{
-		outbox.TypeConsultationBooked,
-		outbox.TypeConsultationCancelled,
-		outbox.TypeConsultationStatus,
-	} {
-		if !isBookingEvent(eventType) {
-			t.Errorf("%q would no longer be copied to the farm", eventType)
+func TestFarmNoticesCoverBookingsAndOrders(t *testing.T) {
+	// Each of these events reaches the customer first; the farm then gets
+	// its own view of the same news, written for staff and linked to the
+	// dashboard rather than to the customer's account pages.
+	cases := map[string]map[string]any{
+		outbox.TypeConsultationBooked: {
+			"reference":      "CB-12345",
+			"type_name":      "Poultry Health & Management Advisory",
+			"date":           "2026-10-20",
+			"time":           "09:00 AM",
+			"name":           "Ada Obi",
+			"email":          "customer@example.com",
+			"phone":          "0803 000 0000",
+			"payment_status": "paid",
+			"amount":         float64(1_000_000),
+		},
+		outbox.TypeConsultationCancelled: {
+			"reference": "CB-12345",
+			"type_name": "Poultry Health & Management Advisory",
+			"date":      "2026-10-20",
+			"time":      "09:00 AM",
+			"name":      "Ada Obi",
+			"email":     "customer@example.com",
+		},
+		outbox.TypeConsultationStatus: {
+			"reference": "CB-12345",
+			"type_name": "Poultry Health & Management Advisory",
+			"date":      "2026-10-20",
+			"time":      "09:00 AM",
+			"status":    "confirmed",
+			"name":      "Ada Obi",
+			"email":     "customer@example.com",
+		},
+		outbox.TypeOrderCreated: {
+			"order_number": "DG-123456",
+			"name":         "Ada Obi",
+			"email":        "customer@example.com",
+			"total":        float64(900_000),
+			"status":       "pending",
+		},
+		outbox.TypeOrderPaid: {
+			"order_number": "DG-123456",
+			"name":         "Ada Obi",
+			"email":        "customer@example.com",
+			"total":        float64(900_000),
+			"status":       "pending",
+		},
+	}
+
+	for eventType, data := range cases {
+		// The customer still hears about it, from their own address.
+		customer, ok := Render(eventType, data, "https://denisco.test")
+		if !ok {
+			t.Fatalf("Render(%q) produced no email for the customer", eventType)
 		}
+		if customer.to != "customer@example.com" {
+			t.Errorf("Render(%q) recipient = %q, want the customer", eventType, customer.to)
+		}
+
+		message, ok := RenderAdmin(eventType, data, "https://admin.denisco.test/")
+		if !ok {
+			t.Errorf("RenderAdmin(%q) produced no notice for the farm", eventType)
+			continue
+		}
+		if message.to != "" {
+			t.Errorf("RenderAdmin(%q) recipient = %q, want it left to the worker's admin address", eventType, message.to)
+		}
+		if strings.TrimSpace(message.subject) == "" {
+			t.Errorf("RenderAdmin(%q) has an empty subject", eventType)
+		}
+		if !strings.Contains(message.html, "https://admin.denisco.test/") {
+			t.Errorf("RenderAdmin(%q) does not link to the dashboard:\n%s", eventType, message.html)
+		}
+		if !strings.Contains(message.text, "customer@example.com") {
+			t.Errorf("RenderAdmin(%q) does not name the customer for the farm:\n%s", eventType, message.text)
+		}
+	}
+}
+
+func TestStaffOnlyNoticesRenderForTheFarmAlone(t *testing.T) {
+	// A website enquiry never concerned the customer, and a late payment
+	// must not reach them: both exist only in the farm's form.
+	cases := map[string]map[string]any{
+		outbox.TypeContactReceived: {
+			"name":    "A Visitor",
+			"email":   "visitor@example.com",
+			"subject": "Bulk order enquiry",
+			"message": "Do you deliver to Ibadan?",
+		},
+		outbox.TypeOrderPaymentUnreconciled: {
+			"order_number": "DG-123456",
+			"total":        float64(1_950_000),
+		},
+	}
+
+	for eventType, data := range cases {
+		if _, ok := Render(eventType, data, "https://denisco.test"); ok {
+			t.Errorf("Render(%q) produced a customer copy of a staff notice", eventType)
+		}
+		message, ok := RenderAdmin(eventType, data, "https://admin.denisco.test")
+		if !ok {
+			t.Errorf("RenderAdmin(%q) produced no notice for the farm", eventType)
+			continue
+		}
+		if message.to != "" {
+			t.Errorf("RenderAdmin(%q) recipient = %q, want it left to the worker's admin address", eventType, message.to)
+		}
+	}
+}
+
+func TestRenderAdminEscapesUntrustedValues(t *testing.T) {
+	// The customer's name reaches the farm's inbox the same way it reaches
+	// the customer's: already escaped.
+	message, ok := RenderAdmin(outbox.TypeOrderCreated, map[string]any{
+		"name":         `Ada <script>alert(1)</script>`,
+		"email":        "customer@example.com",
+		"order_number": "DG-123456",
+		"total":        float64(650_000),
+	}, "https://admin.denisco.test")
+	if !ok {
+		t.Fatal("RenderAdmin() produced no notice")
+	}
+
+	if strings.Contains(message.html, "<script>") {
+		t.Errorf("RenderAdmin() left injected markup unescaped:\n%s", message.html)
 	}
 }

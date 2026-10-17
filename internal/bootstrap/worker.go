@@ -64,6 +64,7 @@ func RunWorker(c *Container) error {
 		c.OrderService,
 		c.ConsultationService,
 		c.Config.App.WebURL,
+		c.Config.CORS.AdminOrigin,
 		c.Config.Resend.AdminEmail,
 		c.Logger,
 	)

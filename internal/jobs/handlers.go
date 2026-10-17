@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dev-folabi/denisco_backend/internal/outbox"
 	"github.com/Dev-folabi/denisco_backend/internal/platform/mail"
 	"github.com/Dev-folabi/denisco_backend/internal/platform/queue"
 	"github.com/hibiken/asynq"
@@ -34,23 +33,26 @@ type SlotMaintenance interface {
 
 // Handlers implement the worker's tasks.
 type Handlers struct {
-	sender  mail.Sender
-	orders  OrderMaintenance
-	slots   SlotMaintenance
-	siteURL string
-	// adminEmail receives a copy of booking notifications, as the plan
-	// requires; empty disables the copy.
+	sender mail.Sender
+	orders OrderMaintenance
+	slots  SlotMaintenance
+	// siteURL is the customer site; adminURL the dashboard. Notices that
+	// name a link point at whichever audience they are written for.
+	siteURL  string
+	adminURL string
+	// adminEmail receives every farm notice; empty disables them.
 	adminEmail string
 	log        *slog.Logger
 }
 
 // NewHandlers wires the worker's dependencies.
-func NewHandlers(sender mail.Sender, orders OrderMaintenance, slots SlotMaintenance, siteURL, adminEmail string, log *slog.Logger) *Handlers {
+func NewHandlers(sender mail.Sender, orders OrderMaintenance, slots SlotMaintenance, siteURL, adminURL, adminEmail string, log *slog.Logger) *Handlers {
 	return &Handlers{
 		sender:     sender,
 		orders:     orders,
 		slots:      slots,
-		siteURL:    siteURL,
+		siteURL:    strings.TrimRight(siteURL, "/"),
+		adminURL:   strings.TrimRight(adminURL, "/"),
 		adminEmail: strings.TrimSpace(adminEmail),
 		log:        log,
 	}
@@ -63,11 +65,15 @@ func (h *Handlers) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(queue.TaskPurgeSlots, h.PurgeSlots)
 }
 
-// SendEmail delivers one transactional email.
+// SendEmail delivers one transactional email — the customer's copy, the
+// farm's notice, or for some events only one of the two.
 //
 // A permanent provider rejection (a bad address, say) is swallowed with
 // asynq.SkipRetry: retrying would never succeed and would only keep the task
-// cycling. Everything else is returned so Asynq retries with backoff.
+// cycling. Everything else is returned so Asynq retries with backoff. The
+// farm's notice is the exception once the customer's copy has gone: failing
+// the task then would resend the customer's mail, so the notice is logged
+// and let go. When it is the only copy, it is retried like any other mail.
 func (h *Handlers) SendEmail(ctx context.Context, task *asynq.Task) error {
 	var payload queue.EmailPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -80,47 +86,47 @@ func (h *Handlers) SendEmail(ctx context.Context, task *asynq.Task) error {
 		slog.String("event_type", payload.EventType),
 	)
 
-	message, ok := Render(payload.EventType, payload.Data, h.siteURL)
-	if !ok {
-		log.Debug("event has no customer-facing email; nothing to send")
+	message, hasCustomer := Render(payload.EventType, payload.Data, h.siteURL)
+	farmNotice, hasFarm := RenderAdmin(payload.EventType, payload.Data, h.adminURL)
+
+	if !hasCustomer && !hasFarm {
+		log.Debug("event has no email; nothing to send")
 		return nil
 	}
 
-	if isStaffEvent(payload.EventType) {
-		// Staff-only notices never go to the customer, whose address is the
-		// one carried on the event.
-		if h.adminEmail == "" {
-			log.Warn("staff notice has nowhere to go: ADMIN_NOTIFICATION_EMAIL is not set",
-				slog.String("subject", message.subject))
-			return nil
+	// The customer's copy comes first: if the provider refuses it, the task
+	// is retried and the farm's notice waits, rather than the farm hearing
+	// about an order the customer was never told of.
+	sentToCustomer := false
+	if hasCustomer {
+		if message.to == "" {
+			message.to = payload.To
 		}
-		message.to = h.adminEmail
+		if message.to == "" {
+			log.Warn("event has no recipient address; skipping the customer's copy")
+		} else if err := h.deliver(ctx, message, log); err != nil {
+			return err
+		} else {
+			sentToCustomer = true
+		}
 	}
 
-	if message.to == "" {
-		message.to = payload.To
+	if !hasFarm {
+		return nil
 	}
-	if message.to == "" {
-		log.Warn("event has no recipient address; dropping")
+	if h.adminEmail == "" {
+		log.Warn("notice has nowhere to go: ADMIN_NOTIFICATION_EMAIL is not set",
+			slog.String("subject", farmNotice.subject))
 		return nil
 	}
 
-	if err := h.deliver(ctx, message, log); err != nil {
-		return err
-	}
-
-	// Bookings are also copied to the farm so staff see new appointments.
-	if h.adminEmail != "" && isBookingEvent(payload.EventType) {
-		copyMessage := message
-		copyMessage.to = h.adminEmail
-		copyMessage.subject = "[Farm] " + message.subject
-
-		if err := h.deliver(ctx, copyMessage, log.With(slog.String("recipient", "admin"))); err != nil {
-			// The customer's copy already went out; failing the task would
-			// resend it, so the admin copy is logged and let go.
-			log.Warn("could not send the farm's copy of the booking notice",
-				slog.String("error", err.Error()))
+	farmNotice.to = h.adminEmail
+	if err := h.deliver(ctx, farmNotice, log.With(slog.String("recipient", "admin"))); err != nil {
+		if !sentToCustomer {
+			return err
 		}
+		log.Warn("could not send the farm's notice",
+			slog.String("error", err.Error()))
 	}
 
 	return nil
@@ -198,28 +204,4 @@ func (h *Handlers) PurgeSlots(ctx context.Context, _ *asynq.Task) error {
 	}
 
 	return nil
-}
-
-// isBookingEvent reports whether the farm should receive a copy.
-//
-// This is an explicit list rather than a `consultation.` prefix match: a
-// refund or a declined fee is between the customer and their bank, and the
-// farm has nothing to act on.
-func isBookingEvent(eventType string) bool {
-	switch eventType {
-	case outbox.TypeConsultationBooked, outbox.TypeConsultationCancelled, outbox.TypeConsultationStatus:
-		return true
-	default:
-		return false
-	}
-}
-
-// isStaffEvent reports whether an event is addressed to the farm alone.
-func isStaffEvent(eventType string) bool {
-	switch eventType {
-	case outbox.TypeOrderPaymentUnreconciled, outbox.TypeContactReceived:
-		return true
-	default:
-		return false
-	}
 }
