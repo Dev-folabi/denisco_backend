@@ -51,7 +51,7 @@ services:
           memory: 64M
 
   api:
-    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-api:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-api:${API_TAG:-latest}
     build:
       context: ..
       dockerfile: deployments/Dockerfile.api
@@ -71,7 +71,7 @@ services:
           memory: 256M
 
   worker:
-    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-worker:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-worker:${WORKER_TAG:-latest}
     build:
       context: ..
       dockerfile: deployments/Dockerfile.worker
@@ -89,7 +89,7 @@ services:
           memory: 192M
 
   outbox:
-    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-outbox:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-outbox:${OUTBOX_TAG:-latest}
     build:
       context: ..
       dockerfile: deployments/Dockerfile.outbox-publisher
@@ -107,7 +107,7 @@ services:
           memory: 96M
 
   web:
-    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-web:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-web:${WEB_TAG:-latest}
     build:
       context: ../../denisco_web
       args:
@@ -131,7 +131,7 @@ services:
           memory: 320M
 
   admin:
-    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-admin:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/dev-folabi}/denisco-admin:${ADMIN_TAG:-latest}
     build:
       context: ../../denisco_admin
       args:
