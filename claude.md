@@ -734,3 +734,50 @@ customer was left waiting on news that the system already had.
   farm still notified without a customer address, and no failure when
   `ADMIN_NOTIFICATION_EMAIL` is unset. The template tests assert the
   dashboard links, the escaping, and that refunds render no farm notice.
+
+## 15. Per-area home-delivery fees (2026-10-17)
+
+A client request that deliberately **overrides the prototype**: home
+delivery there is a flat ₦2,500 within Abuja, and the farm delivers to
+several areas each carrying its own rate. The fee moved off a constant and
+onto the place it belongs — the area being delivered to.
+
+- **New `delivery` module**, layered like the rest: `domain.Location`
+  (id, name, name_key, fee in kobo, active), `domain.Settings` (a singleton
+  keyed `"home_delivery"` holding `enabled`), and two repositories. Names are
+  unique case-insensitively through `name_key`; the fee is bounded
+  0…10,000,000,000 kobo.
+- **Public `GET /api/v1/delivery`** returns `{enabled, locations}`. The
+  offering is closed (`enabled: false`) while the switch is off **or** no
+  area is active, and in that state the areas themselves are withheld rather
+  than sent for the checkout to ignore — the response is a promise of what a
+  customer can be sold, not a preview.
+- **Admin `GET|PATCH /api/v1/admin/delivery`** and
+  `POST|PATCH|DELETE /api/v1/admin/delivery/locations[/{id}]`, mounted
+  behind the existing admin auth, each writing an audit-log entry
+  (`delivery_location.*`, `delivery_settings.changed`).
+- **The fee is read server-side.** Checkout accepts `location_id` and
+  resolves it through `DeliveryPort.ActiveLocation`; an unknown, retired or
+  area-while-off id is `ErrLocationUnavailable` (422
+  `DELIVERY_LOCATION_UNAVAILABLE`) and a delivery with no area is
+  `ErrLocationRequired` (422 `DELIVERY_LOCATION_REQUIRED`). `DeliveryFeeKobo`
+  and `DeliveryFeeFor` are gone. The order snapshots the area's id and name so
+  history keeps the fee that was charged even after the area is retuned.
+- **`site_settings` and `delivery_locations` are seeded nowhere**, on
+  purpose: the prototype has no such collections and inventing rates would
+  invent defaults. The farm adds its own areas in the settings page, and the
+  offering starts closed.
+- **Decoupling.** Orders never import delivery — it declares
+  `DeliveryPort.ActiveLocation`, satisfied by an adapter in
+  `internal/bootstrap/adapters.go`. The module order in `dependencies.go`
+  matters: delivery is built first and handed to orders.
+- **Tests.** `tests/integration/delivery_test.go` covers the offering opening
+  with its first area, the chosen area's fee being charged, the refusal of an
+  unknown area and of delivery while the switch is off, pickup still working
+  while the switch is off, and case-insensitive name uniqueness — six tests,
+  all passing against Atlas. Both new collections are in the truncate list in
+  `tests/integration/main_test.go`; a new collection missing from it silently
+  leaks state between runs.
+- **OpenAPI** documents the offering, the four admin paths and the new order
+  fields. The `location_id` request property and the two 422 codes are on
+  `POST /orders`.

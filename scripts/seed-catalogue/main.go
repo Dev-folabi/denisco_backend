@@ -45,8 +45,9 @@ const defaultMediaBase = "/images"
 
 func main() {
 	var (
-		mediaBase  = flag.String("media-base", defaultMediaBase, "base path or URL for the seeded product images")
-		resetStock = flag.Bool("reset-stock", false, "reset on-hand stock to the prototype quantities")
+		mediaBase    = flag.String("media-base", defaultMediaBase, "base path or URL for the seeded product images")
+		resetStock   = flag.Bool("reset-stock", true, "reset on-hand stock to the catalogue quantities (default true: the brief requires every product in stock)")
+		archiveStale = flag.Bool("archive-stale", true, "archive active products whose slug is not in the catalogue, so a reseed replaces the range")
 	)
 	flag.Parse()
 
@@ -96,6 +97,11 @@ func main() {
 	log.Info("categories seeded", slog.Int("count", len(categoryIDs)))
 
 	var created, updated int
+	seededSlugs := make(map[string]struct{})
+
+	for _, item := range catalogue() {
+		seededSlugs[slug.Make(item.Name)] = struct{}{}
+	}
 
 	for _, item := range catalogue() {
 		categoryID, ok := categoryIDs[item.Category]
@@ -114,8 +120,10 @@ func main() {
 		existing, err := productRepo.FindBySlug(ctx, productSlug)
 		switch {
 		case err == nil:
-			// Refresh the catalogue fields but leave images alone when the
-			// seed has none to offer, so admin uploads are not wiped.
+			// Refresh the catalogue fields. The 2026-10-25 brief replaced the
+			// whole range, including every image, so the seed's image now
+			// overwrites whatever the record held — unlike before, when an
+			// admin upload was preserved.
 			fields := bson.M{
 				"name":        item.Name,
 				"description": item.Description,
@@ -124,8 +132,9 @@ func main() {
 				"currency":    productsdomain.Currency,
 				"unit":        item.Unit,
 				"featured":    item.Featured,
+				"status":      productsdomain.StatusActive,
 			}
-			if len(images) > 0 && len(existing.Images) == 0 {
+			if len(images) > 0 {
 				fields["images"] = images
 			}
 
@@ -177,9 +186,31 @@ func main() {
 		}
 	}
 
+	// Replace the range: any active product the catalogue no longer lists is
+	// archived rather than deleted, so order history that names it still
+	// resolves. Archiving drops it out of the shop and the public listing.
+	var archived int
+	if *archiveStale {
+		all, _, err := productRepo.List(ctx, productsdomain.Filter{Status: productsdomain.StatusActive}, 1, 1000)
+		if err != nil {
+			fail("failed to list products for archiving", err)
+		}
+		for _, product := range all {
+			if _, kept := seededSlugs[product.Slug]; kept {
+				continue
+			}
+			if err := productRepo.Update(ctx, product.ID, bson.M{"status": productsdomain.StatusArchived}); err != nil {
+				fail("failed to archive stale product", err)
+			}
+			archived++
+			log.Info("archived product not in catalogue", slog.String("slug", product.Slug))
+		}
+	}
+
 	log.Info("catalogue seeded",
 		slog.Int("created", created),
 		slog.Int("updated", updated),
+		slog.Int("archived", archived),
 		slog.Bool("stock_reset", *resetStock),
 		slog.String("media_base", base),
 	)

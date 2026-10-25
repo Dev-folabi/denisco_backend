@@ -29,14 +29,21 @@ type Category struct {
 	UpdatedAt time.Time `bson:"updated_at"`
 }
 
-// Seed returns the categories defined by the prototype, in display order.
+// Seed returns the catalogue's categories, in display order.
+//
+// This supersedes the prototype's five categories at the client's request
+// (2026-10-25): the piggery unit broadened into "Pig & Micro-Livestock"
+// (keeping the slug "piggery" so existing records and URLs still resolve),
+// and a "Spices & Nutrition" category was added for the AROMACRAFT and
+// ROYAL LUSH blend ranges.
 func Seed() []Category {
 	return []Category{
 		{Slug: "poultry", Name: "Poultry", Position: 1, Active: true},
 		{Slug: "livestock", Name: "Livestock", Position: 2, Active: true},
-		{Slug: "piggery", Name: "Piggery", Position: 3, Active: true},
-		{Slug: "snail", Name: "Snail Farming", Position: 4, Active: true},
-		{Slug: "crops", Name: "Crop Farming", Position: 5, Active: true},
+		{Slug: "piggery", Name: "Pig & Micro-Livestock", Position: 3, Active: true},
+		{Slug: "crops", Name: "Crop Farming", Position: 4, Active: true},
+		{Slug: "snail", Name: "Snail Farming", Position: 5, Active: true},
+		{Slug: "spices", Name: "Spices & Nutrition", Position: 6, Active: true},
 	}
 }
 
