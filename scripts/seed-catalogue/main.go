@@ -10,6 +10,7 @@
 //
 //	go run ./scripts/seed-catalogue
 //	go run ./scripts/seed-catalogue -reset-stock
+//	go run ./scripts/seed-catalogue -create-only      # live database: add missing products only
 //	go run ./scripts/seed-catalogue -media-base https://ik.imagekit.io/<id>/denisco
 package main
 
@@ -47,6 +48,7 @@ func main() {
 	var (
 		mediaBase    = flag.String("media-base", defaultMediaBase, "base path or URL for the seeded product images")
 		resetStock   = flag.Bool("reset-stock", true, "reset on-hand stock to the catalogue quantities (default true: the brief requires every product in stock)")
+		createOnly   = flag.Bool("create-only", false, "only create products whose slug does not exist yet; never modify, restock or archive existing ones (use on a live database)")
 		archiveStale = flag.Bool("archive-stale", true, "archive active products whose slug is not in the catalogue, so a reseed replaces the range")
 	)
 	flag.Parse()
@@ -119,6 +121,10 @@ func main() {
 
 		existing, err := productRepo.FindBySlug(ctx, productSlug)
 		switch {
+		case err == nil && *createOnly:
+			// Existing product: leave its price, stock and images untouched.
+			continue
+
 		case err == nil:
 			// Refresh the catalogue fields. The 2026-10-25 brief replaced the
 			// whole range, including every image, so the seed's image now
@@ -190,7 +196,7 @@ func main() {
 	// archived rather than deleted, so order history that names it still
 	// resolves. Archiving drops it out of the shop and the public listing.
 	var archived int
-	if *archiveStale {
+	if *archiveStale && !*createOnly {
 		all, _, err := productRepo.List(ctx, productsdomain.Filter{Status: productsdomain.StatusActive}, 1, 1000)
 		if err != nil {
 			fail("failed to list products for archiving", err)

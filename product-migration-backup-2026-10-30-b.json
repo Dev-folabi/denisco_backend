@@ -1,0 +1,933 @@
+{
+  "products": [
+    {
+      "_id": {
+        "$oid": "6ae4874137221403c341c6ac"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361728978"
+        }
+      },
+      "currency": "NGN",
+      "description": "Mixed feed additive (Bacillus subtilis + Bacillus licheniformis) that supports gut health, faster growth and lower feed cost in broilers.",
+      "featured": true,
+      "images": [
+        {
+          "url": "/images/nutrition-1.jpeg"
+        }
+      ],
+      "name": "Broiler Growth Booster (1kg)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "broiler-growth-booster-1kg",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874137221403c341c6ad"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361729569"
+        }
+      },
+      "currency": "NGN",
+      "description": "Bacillus subtilis and Saccharomyces cerevisiae feed additive that supports healthy digestion, steady weight gain and better feed conversion in pigs.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-2.jpeg"
+        }
+      ],
+      "name": "Pig Growth Booster (1kg)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "pig-growth-booster-1kg",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874237221403c341c6ae"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361730181"
+        }
+      },
+      "currency": "NGN",
+      "description": "Lysozyme and glycine feed additive that supports gut health and immunity, helping control diarrhoea and enteritis in livestock and poultry.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-3.jpeg"
+        }
+      ],
+      "name": "BactoClear (100g)",
+      "price": {
+        "$numberLong": "350000"
+      },
+      "slug": "bactoclear-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874337221403c341c6af"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361730811"
+        }
+      },
+      "currency": "NGN",
+      "description": "Bacillus subtilis and Saccharomyces cerevisiae feed additive that supports digestion and steady weight gain in pigs.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-4.jpeg"
+        }
+      ],
+      "name": "Pig Growth Booster (1kg)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "pig-growth-booster-1kg-duplicate",
+      "status": "archived",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874337221403c341c6b0"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361731642"
+        }
+      },
+      "currency": "NGN",
+      "description": "Bacillus subtilis and Saccharomyces cerevisiae feed additive for cattle, sheep and goats, supporting rumen health and growth.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-5.jpeg"
+        }
+      ],
+      "name": "Ruminants Growth Booster (1kg)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "ruminants-growth-booster-1kg-duplicate",
+      "status": "archived",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874437221403c341c6b1"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361732371"
+        }
+      },
+      "currency": "NGN",
+      "description": "Lysozyme and glycine feed additive for aquaculture that helps eliminate pathogenic Vibrio and supports healthy, thriving fish and shrimp.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-6.jpeg"
+        }
+      ],
+      "name": "Vibrio Clear (100g)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "vibrio-clear-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874537221403c341c6b2"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361733022"
+        }
+      },
+      "currency": "NGN",
+      "description": "Bacillus subtilis and Saccharomyces cerevisiae feed additive for cattle and sheep, improving roughage digestibility, weight gain and feed efficiency.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-7.jpeg"
+        }
+      ],
+      "name": "Ruminant Growth Booster (1kg)",
+      "price": {
+        "$numberLong": "350000"
+      },
+      "slug": "ruminant-growth-booster-1kg",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6ae4874537221403c341c6b3"
+      },
+      "category_id": {
+        "$oid": "6ae48734c2f3cf8de5e83c1f"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1793361733787"
+        }
+      },
+      "currency": "NGN",
+      "description": "Taurine and L-ascorbic acid (vitamin C) multivitamin feed additive that boosts immunity, stress resistance and daily weight gain across livestock and poultry.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/nutrition-8.jpeg"
+        }
+      ],
+      "name": "Multivitamin Complex (1kg)",
+      "price": {
+        "$numberLong": "650000"
+      },
+      "slug": "multivitamin-complex-1kg",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc28ed9a1ff80757855e1"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918158779"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT crushed cayenne pepper, 100g — fiery, coarse flakes for stews, grills and sauces.",
+      "featured": true,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-crushed-cayenne-pepper.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Crushed Cayenne Pepper (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "aromacraft-crushed-cayenne-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc28fd9a1ff80757855e2"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918159434"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT dried ground ginger, 100g — warm and aromatic for cooking, baking and teas.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-ginger.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Ginger (100g)",
+      "price": {
+        "$numberLong": "200000"
+      },
+      "slug": "aromacraft-ginger-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc290d9a1ff80757855e3"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918160174"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT pepper soup spice blend, 100g — the classic aromatic mix for Nigerian pepper soups.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-pepper-soup-spice.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Pepper Soup Spice (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "aromacraft-pepper-soup-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc290d9a1ff80757855e4"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918160809"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT ground turmeric, 100g — earthy, golden spice for cooking and wellness.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-turmeric.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Turmeric (100g)",
+      "price": {
+        "$numberLong": "200000"
+      },
+      "slug": "aromacraft-turmeric-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc291d9a1ff80757855e5"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918161499"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT ground black pepper, 100g — bold, pungent seasoning for everyday cooking.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-black-pepper.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Black Pepper (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "aromacraft-black-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc292d9a1ff80757855e6"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918162219"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT all-purpose seasoning, 100g — a balanced everyday blend for meats, soups and rice.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-all-purpose-spice.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT All Purpose Spice (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "aromacraft-all-purpose-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc293d9a1ff80757855e7"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918162842"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT stew and jollof rice spice, 100g — a ready blend for rich tomato stews and jollof.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-stew-jollof-rice-spice.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Stew \u0026 Jollof Rice Spice (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "aromacraft-stew-jollof-rice-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc293d9a1ff80757855e8"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918163578"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT finely ground cayenne pepper, 100g — even heat that blends smoothly into any dish.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-ground-cayenne-pepper.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Ground Cayenne Pepper (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "aromacraft-ground-cayenne-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc294d9a1ff80757855e9"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918164202"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT curry powder, 100g — a fragrant, well-rounded curry blend for stews and rice.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-curry-powder.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Curry Powder (100g)",
+      "price": {
+        "$numberLong": "200000"
+      },
+      "slug": "aromacraft-curry-powder-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc295d9a1ff80757855ea"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918164878"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT ground cinnamon, 100g — sweet, warming spice for baking, drinks and desserts.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-cinnamon-powder.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT Cinnamon Powder (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "aromacraft-cinnamon-powder-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc295d9a1ff80757855eb"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918165513"
+        }
+      },
+      "currency": "NGN",
+      "description": "AROMACRAFT ground white pepper, 100g — mild, earthy heat for light sauces and soups.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-aromacraft-white-pepper.jpeg"
+        }
+      ],
+      "name": "AROMACRAFT White Pepper (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "aromacraft-white-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc296d9a1ff80757855ec"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918166165"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH all-purpose seasoning, 100g — a versatile blend for meat, fish, soups and rice.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-all-purpose-spice.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH All Purpose Spice (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "royal-lush-all-purpose-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc297d9a1ff80757855ed"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918167262"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH stew and jollof rice spice, 100g — a rich blend for tomato stews and party jollof.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-stew-jollof-rice-spice.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Stew \u0026 Jollof Rice Spice (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "royal-lush-stew-jollof-rice-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc298d9a1ff80757855ee"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918167983"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH yaji, 100g — the classic peppery, nutty suya spice for grilled meat and snacks.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-yaji-suya-spice.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Yaji (Suya Spice) (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "royal-lush-yaji-suya-spice-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc298d9a1ff80757855ef"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918168715"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH ground cinnamon, 100g — fragrant and sweet for baking, drinks and oatmeal.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-cinnamon-powder.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Cinnamon Powder (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "royal-lush-cinnamon-powder-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc299d9a1ff80757855f0"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918169403"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH ground turmeric, 100g — golden, earthy spice for cooking and wellness.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-turmeric.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Turmeric (100g)",
+      "price": {
+        "$numberLong": "200000"
+      },
+      "slug": "royal-lush-turmeric-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc29ad9a1ff80757855f1"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918170058"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH ground black pepper, 100g — bold, aromatic seasoning for everyday dishes.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-black-pepper.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Black Pepper (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "royal-lush-black-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc29ad9a1ff80757855f2"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918170682"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH smoked paprika, 100g — deep, smoky-sweet colour and flavour for stews and rubs.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-smoked-paprika-peppers.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Smoked Paprika Peppers (100g)",
+      "price": {
+        "$numberLong": "300000"
+      },
+      "slug": "royal-lush-smoked-paprika-peppers-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc29bd9a1ff80757855f3"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918171340"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH curry powder, 100g — a fragrant, balanced curry blend for stews and rice.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-curry-powder.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Curry Powder (100g)",
+      "price": {
+        "$numberLong": "200000"
+      },
+      "slug": "royal-lush-curry-powder-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6addc29cd9a1ff80757855f4"
+      },
+      "category_id": {
+        "$oid": "6addc2805c26acf4bd5d14db"
+      },
+      "created_at": {
+        "$date": {
+          "$numberLong": "1792918171977"
+        }
+      },
+      "currency": "NGN",
+      "description": "ROYAL LUSH smoked cayenne pepper, 100g — smoky heat for grills, sauces and marinades.",
+      "featured": false,
+      "images": [
+        {
+          "url": "/images/spice-royal-lush-smoked-cayenne-pepper.jpeg"
+        }
+      ],
+      "name": "ROYAL LUSH Smoked Cayenne Pepper (100g)",
+      "price": {
+        "$numberLong": "250000"
+      },
+      "slug": "royal-lush-smoked-cayenne-pepper-100g",
+      "status": "active",
+      "unit": "pack",
+      "updated_at": {
+        "$date": {
+          "$numberLong": "1793370214621"
+        }
+      }
+    }
+  ],
+  "taken_at": {
+    "$date": {
+      "$numberLong": "1793370701330"
+    }
+  }
+}

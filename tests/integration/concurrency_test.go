@@ -290,7 +290,7 @@ func TestConcurrentAdjustmentsNeverOversell(t *testing.T) {
 	// Ten units, ten customers reserving one each, plus an administrator
 	// trying to remove five at the same time. However the operations
 	// interleave, the ledger must never promise more than it holds.
-	snail := e.newProduct(t, "Farm-Raised Snail", "snail", "bag", 2_500_000, 10)
+	snail := e.newProduct(t, "Farm-Raised Snail", "micro-livestock", "bag", 2_500_000, 10)
 
 	var wg sync.WaitGroup
 	reserved := make([]bool, 10)

@@ -88,25 +88,25 @@ func catalogue() []seedProduct {
 			Description: "Prime, healthy rams carefully selected for size and condition, available for breeding and festive seasons.",
 			Image:       "Ram.jpeg",
 		},
-
-		// ===== Pig & Micro-Livestock =====
 		{
-			Name: "Pig", Category: "piggery", Unit: "head", PriceNaira: 95_000, Stock: 25,
+			Name: "Pig", Category: "livestock", Unit: "head", PriceNaira: 95_000, Stock: 25,
 			Description: "Farm-raised pigs from our piggery unit, managed under strict hygiene and feeding protocols.",
-			Image:       "pig.jpeg", Featured: true,
+			Image:       "pig.jpeg",
 		},
+
+		// ===== Micro-Livestock =====
 		{
-			Name: "Guinea Pig", Category: "piggery", Unit: "animal", PriceNaira: 5_000, Stock: 60,
+			Name: "Guinea Pig", Category: "micro-livestock", Unit: "animal", PriceNaira: 5_000, Stock: 60,
 			Description: "Healthy guinea pigs reared for breeding stock and small-scale micro-livestock keeping.",
 			Image:       "Guinea_pigs.jpeg",
 		},
 		{
-			Name: "Rabbit", Category: "piggery", Unit: "animal", PriceNaira: 8_000, Stock: 70,
+			Name: "Rabbit", Category: "micro-livestock", Unit: "animal", PriceNaira: 8_000, Stock: 70,
 			Description: "Well-fed rabbits raised for lean meat and breeding, a fast-multiplying micro-livestock enterprise.",
-			Image:       "Rabbits.jpeg",
+			Image:       "Rabbits.jpeg", Featured: true,
 		},
 		{
-			Name: "Grasscutter", Category: "piggery", Unit: "animal", PriceNaira: 15_000, Stock: 45,
+			Name: "Grasscutter", Category: "micro-livestock", Unit: "animal", PriceNaira: 15_000, Stock: 45,
 			Description: "Domesticated grasscutters reared for their prized bushmeat and for breeding stock.",
 			Image:       "Grasscutters.jpeg",
 		},
@@ -133,120 +133,151 @@ func catalogue() []seedProduct {
 			Image:       "Gunine_corn.jpeg",
 		},
 
-		// ===== Snail Farming =====
 		{
-			Name: "Giant Ghana Tiger Snail", Category: "snail", Unit: "bag", PriceNaira: 25_000, Stock: 40,
-			Description: "Fresh, plump Giant Ghana Tiger snails, sustainably reared in our snailry and sold by the bag.",
-			Image:       "Giant_Ghana_Tiger_Snail.jpeg", Featured: true,
-		},
-		{
-			Name: "East African Snail", Category: "snail", Unit: "bag", PriceNaira: 22_000, Stock: 40,
-			Description: "Healthy East African land snails raised for meat and breeding, sold fresh by the bag.",
-			Image:       "East_African_Snail.jpeg",
+			Name: "Snail", Category: "micro-livestock", Unit: "bag", PriceNaira: 25_000, Stock: 40,
+			Description: "Fresh, plump snails, sustainably reared in our snailry and sold by the bag.",
+			Image:       "Giant_Ghana_Tiger_Snail.jpeg",
 		},
 
-		// ===== Spices & Nutrition — AROMACRAFT (100g) =====
+		// ===== Animal Nutrition =====
+		{
+			Name: "Broiler Growth Booster (1kg)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 6500, Stock: 100,
+			Description: "Mixed feed additive (Bacillus subtilis + Bacillus licheniformis) that supports gut health, faster growth and lower feed cost in broilers.",
+			Image:       "nutrition-1.jpeg", Featured: true,
+		},
+		{
+			Name: "Pig Growth Booster (1kg)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 6500, Stock: 100,
+			Description: "Bacillus subtilis and Saccharomyces cerevisiae feed additive that supports healthy digestion, steady weight gain and better feed conversion in pigs.",
+			Image:       "nutrition-2.jpeg",
+		},
+		{
+			Name: "BactoClear (100g)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 3500, Stock: 100,
+			Description: "Lysozyme and glycine feed additive that supports gut health and immunity, helping control diarrhoea and enteritis in livestock and poultry.",
+			Image:       "nutrition-3.jpeg",
+		},
+		{
+			Name: "Turkey Weight Gain Booster (1kg)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 6500, Stock: 100,
+			Description: "Feed additive that supports faster, healthier weight gain in turkeys.",
+			Image:       "nutrition-5.jpeg",
+		},
+		{
+			Name: "Vibrio Clear (100g)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 3500, Stock: 100,
+			Description: "Lysozyme and glycine feed additive for aquaculture that helps eliminate pathogenic Vibrio and supports healthy, thriving fish and shrimp.",
+			Image:       "nutrition-6.jpeg",
+		},
+		{
+			Name: "Ruminant Growth Booster (1kg)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 6500, Stock: 100,
+			Description: "Bacillus subtilis and Saccharomyces cerevisiae feed additive for cattle and sheep, improving roughage digestibility, weight gain and feed efficiency.",
+			Image:       "nutrition-7.jpeg",
+		},
+		{
+			Name: "Multivitamin Complex (1kg)", Category: "animal-nutrition", Unit: "pack", PriceNaira: 6500, Stock: 100,
+			Description: "Taurine and L-ascorbic acid (vitamin C) multivitamin feed additive that boosts immunity, stress resistance and daily weight gain across livestock and poultry.",
+			Image:       "nutrition-8.jpeg",
+		},
+
+		// ===== Spices — AROMACRAFT (100g) =====
 		{
 			Name: "AROMACRAFT Crushed Cayenne Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "AROMACRAFT crushed cayenne pepper, 100g — fiery, coarse flakes for stews, grills and sauces.",
-			Image:       "Spices.jpeg", Featured: true,
+			Image:       "spice-aromacraft-crushed-cayenne-pepper.jpeg", Featured: true,
 		},
 		{
 			Name: "AROMACRAFT Ginger (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_000, Stock: 200,
 			Description: "AROMACRAFT dried ground ginger, 100g — warm and aromatic for cooking, baking and teas.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-ginger.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Pepper Soup Spice (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "AROMACRAFT pepper soup spice blend, 100g — the classic aromatic mix for Nigerian pepper soups.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-pepper-soup-spice.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Turmeric (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_000, Stock: 200,
 			Description: "AROMACRAFT ground turmeric, 100g — earthy, golden spice for cooking and wellness.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-turmeric.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Black Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "AROMACRAFT ground black pepper, 100g — bold, pungent seasoning for everyday cooking.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-black-pepper.jpeg",
 		},
 		{
 			Name: "AROMACRAFT All Purpose Spice (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "AROMACRAFT all-purpose seasoning, 100g — a balanced everyday blend for meats, soups and rice.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-all-purpose-spice.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Stew & Jollof Rice Spice (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "AROMACRAFT stew and jollof rice spice, 100g — a ready blend for rich tomato stews and jollof.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-stew-jollof-rice-spice.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Ground Cayenne Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "AROMACRAFT finely ground cayenne pepper, 100g — even heat that blends smoothly into any dish.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-ground-cayenne-pepper.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Curry Powder (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_000, Stock: 200,
 			Description: "AROMACRAFT curry powder, 100g — a fragrant, well-rounded curry blend for stews and rice.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-curry-powder.jpeg",
 		},
 		{
 			Name: "AROMACRAFT Cinnamon Powder (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "AROMACRAFT ground cinnamon, 100g — sweet, warming spice for baking, drinks and desserts.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-cinnamon-powder.jpeg",
 		},
 		{
 			Name: "AROMACRAFT White Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "AROMACRAFT ground white pepper, 100g — mild, earthy heat for light sauces and soups.",
-			Image:       "Spices.jpeg",
+			Image:       "spice-aromacraft-white-pepper.jpeg",
 		},
 
-		// ===== Spices & Nutrition — ROYAL LUSH (100g) =====
+		// ===== Spices — ROYAL LUSH (100g) =====
 		{
 			Name: "ROYAL LUSH All Purpose Spice (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "ROYAL LUSH all-purpose seasoning, 100g — a versatile blend for meat, fish, soups and rice.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-all-purpose-spice.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Stew & Jollof Rice Spice (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "ROYAL LUSH stew and jollof rice spice, 100g — a rich blend for tomato stews and party jollof.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-stew-jollof-rice-spice.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Yaji (Suya Spice) (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "ROYAL LUSH yaji, 100g — the classic peppery, nutty suya spice for grilled meat and snacks.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-yaji-suya-spice.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Cinnamon Powder (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "ROYAL LUSH ground cinnamon, 100g — fragrant and sweet for baking, drinks and oatmeal.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-cinnamon-powder.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Turmeric (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_000, Stock: 200,
 			Description: "ROYAL LUSH ground turmeric, 100g — golden, earthy spice for cooking and wellness.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-turmeric.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Black Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "ROYAL LUSH ground black pepper, 100g — bold, aromatic seasoning for everyday dishes.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-black-pepper.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Smoked Paprika Peppers (100g)", Category: "spices", Unit: "pack", PriceNaira: 3_000, Stock: 200,
 			Description: "ROYAL LUSH smoked paprika, 100g — deep, smoky-sweet colour and flavour for stews and rubs.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-smoked-paprika-peppers.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Curry Powder (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_000, Stock: 200,
 			Description: "ROYAL LUSH curry powder, 100g — a fragrant, balanced curry blend for stews and rice.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-curry-powder.jpeg",
 		},
 		{
 			Name: "ROYAL LUSH Smoked Cayenne Pepper (100g)", Category: "spices", Unit: "pack", PriceNaira: 2_500, Stock: 200,
 			Description: "ROYAL LUSH smoked cayenne pepper, 100g — smoky heat for grills, sauces and marinades.",
-			Image:       "nutritions.jpeg",
+			Image:       "spice-royal-lush-smoked-cayenne-pepper.jpeg",
 		},
 	}
 }

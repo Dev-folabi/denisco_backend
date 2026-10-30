@@ -32,18 +32,18 @@ type Category struct {
 // Seed returns the catalogue's categories, in display order.
 //
 // This supersedes the prototype's five categories at the client's request
-// (2026-10-25): the piggery unit broadened into "Pig & Micro-Livestock"
-// (keeping the slug "piggery" so existing records and URLs still resolve),
-// and a "Spices & Nutrition" category was added for the AROMACRAFT and
-// ROYAL LUSH blend ranges.
+// (2026-10-25, revised 2026-10-30): the piggery unit became "Micro-Livestock"
+// (the pig itself moved to Livestock), snail farming was folded into
+// Micro-Livestock, "Spices & Nutrition" became "Spices", and "Animal
+// Nutrition" took the feed additives.
 func Seed() []Category {
 	return []Category{
 		{Slug: "poultry", Name: "Poultry", Position: 1, Active: true},
 		{Slug: "livestock", Name: "Livestock", Position: 2, Active: true},
-		{Slug: "piggery", Name: "Pig & Micro-Livestock", Position: 3, Active: true},
+		{Slug: "micro-livestock", Name: "Micro-Livestock", Position: 3, Active: true},
 		{Slug: "crops", Name: "Crop Farming", Position: 4, Active: true},
-		{Slug: "snail", Name: "Snail Farming", Position: 5, Active: true},
-		{Slug: "spices", Name: "Spices & Nutrition", Position: 6, Active: true},
+		{Slug: "animal-nutrition", Name: "Animal Nutrition", Position: 5, Active: true},
+		{Slug: "spices", Name: "Spices", Position: 6, Active: true},
 	}
 }
 

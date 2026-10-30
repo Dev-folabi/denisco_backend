@@ -1,0 +1,233 @@
+{
+  "documents": {
+    "categories": [
+      {
+        "_id": {
+          "$oid": "6ad407e71834ba7cf3ac1354"
+        },
+        "active": true,
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792280550664"
+          }
+        },
+        "description": "",
+        "name": "Pig \u0026 Micro-Livestock",
+        "position": {
+          "$numberInt": "3"
+        },
+        "slug": "piggery",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918142872"
+          }
+        }
+      },
+      {
+        "_id": {
+          "$oid": "6ad407e71834ba7cf3ac1355"
+        },
+        "active": true,
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792280550985"
+          }
+        },
+        "description": "",
+        "name": "Snail Farming",
+        "position": {
+          "$numberInt": "5"
+        },
+        "slug": "snail",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918143511"
+          }
+        }
+      },
+      {
+        "_id": {
+          "$oid": "6addc2805c26acf4bd5d14db"
+        },
+        "active": true,
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792918143833"
+          }
+        },
+        "description": "",
+        "name": "Spices \u0026 Nutrition",
+        "position": {
+          "$numberInt": "6"
+        },
+        "slug": "spices",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918143833"
+          }
+        }
+      }
+    ],
+    "inventory": [
+      {
+        "_id": {
+          "$oid": "6addc28e5c26acf4bd5d14eb"
+        },
+        "available_qty": {
+          "$numberInt": "40"
+        },
+        "product_id": {
+          "$oid": "6addc28ed9a1ff80757855e0"
+        },
+        "reserved_qty": {
+          "$numberInt": "0"
+        },
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918158618"
+          }
+        }
+      }
+    ],
+    "inventory_movements": null,
+    "products": [
+      {
+        "_id": {
+          "$oid": "6addc288d9a1ff80757855db"
+        },
+        "category_id": {
+          "$oid": "6ad407e71834ba7cf3ac1354"
+        },
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792918152202"
+          }
+        },
+        "currency": "NGN",
+        "description": "Farm-raised pigs from our piggery unit, managed under strict hygiene and feeding protocols.",
+        "featured": true,
+        "images": [
+          {
+            "url": "/images/pig.jpeg"
+          }
+        ],
+        "name": "Pig",
+        "price": {
+          "$numberLong": "9500000"
+        },
+        "slug": "pig",
+        "status": "active",
+        "unit": "head",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918152202"
+          }
+        }
+      },
+      {
+        "_id": {
+          "$oid": "6addc28dd9a1ff80757855df"
+        },
+        "category_id": {
+          "$oid": "6ad407e71834ba7cf3ac1355"
+        },
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792918157499"
+          }
+        },
+        "currency": "NGN",
+        "description": "Fresh, plump Giant Ghana Tiger snails, sustainably reared in our snailry and sold by the bag.",
+        "featured": true,
+        "images": [
+          {
+            "url": "/images/Giant_Ghana_Tiger_Snail.jpeg"
+          }
+        ],
+        "name": "Giant Ghana Tiger Snail",
+        "price": {
+          "$numberLong": "2500000"
+        },
+        "slug": "giant-ghana-tiger-snail",
+        "status": "active",
+        "unit": "bag",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918157499"
+          }
+        }
+      },
+      {
+        "_id": {
+          "$oid": "6addc28ed9a1ff80757855e0"
+        },
+        "category_id": {
+          "$oid": "6ad407e71834ba7cf3ac1355"
+        },
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792918158122"
+          }
+        },
+        "currency": "NGN",
+        "description": "Healthy East African land snails raised for meat and breeding, sold fresh by the bag.",
+        "featured": false,
+        "images": [
+          {
+            "url": "/images/East_African_Snail.jpeg"
+          }
+        ],
+        "name": "East African Snail",
+        "price": {
+          "$numberLong": "2200000"
+        },
+        "slug": "east-african-snail",
+        "status": "active",
+        "unit": "bag",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918158122"
+          }
+        }
+      },
+      {
+        "_id": {
+          "$oid": "6ad407ed55db136c3d03cc41"
+        },
+        "category_id": {
+          "$oid": "6ad407e71834ba7cf3ac1355"
+        },
+        "created_at": {
+          "$date": {
+            "$numberLong": "1792280557702"
+          }
+        },
+        "currency": "NGN",
+        "description": "Fresh, plump giant African land snails, sustainably reared in our snailry and sold by the bag.",
+        "featured": false,
+        "images": [
+          {
+            "url": "/images/snails.jpeg"
+          }
+        ],
+        "name": "Farm-Raised Snail",
+        "price": {
+          "$numberLong": "2500000"
+        },
+        "slug": "farm-raised-snail",
+        "status": "archived",
+        "unit": "bag",
+        "updated_at": {
+          "$date": {
+            "$numberLong": "1792918173578"
+          }
+        }
+      }
+    ]
+  },
+  "taken_at": {
+    "$date": {
+      "$numberLong": "1793361715007"
+    }
+  }
+}
