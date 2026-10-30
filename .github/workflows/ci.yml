@@ -51,7 +51,12 @@ jobs:
 
   integration:
     name: Integration and concurrency tests
-    runs-on: ubuntu-latest
+    # Pinned to 24.04 rather than ubuntu-latest: the latest label moved to a
+    # runner image with Linux kernel 6.19+, and mongod refuses to start on it
+    # ("MongoDB cannot start: Linux kernel versions 6.19 and newer has a known
+    # incompatibility", SERVER-121912). Move back to ubuntu-latest once a
+    # fixed mongo release is pinned below.
+    runs-on: ubuntu-24.04
 
     services:
       redis:
@@ -76,10 +81,9 @@ jobs:
       # set; a standalone mongod would skip the half of it that matters. A
       # single-node set is enough and starts in seconds.
       #
-      # The image is pinned by digest. The floating mongo:8 tag moved on
-      # 2026-10-30 to an image whose mongod exited at startup, which failed
-      # this job before a single test ran; this digest is the one the last
-      # green run (2026-10-25) pulled. Bump it deliberately, not by accident.
+      # The image is pinned by digest (the one the last green run, 2026-10-25,
+      # pulled) so a moving tag cannot change this job unannounced. Bump it
+      # deliberately.
       - name: Start MongoDB as a single-node replica set
         run: |
           docker run -d --name mongo -p 27017:27017 \
