@@ -51,12 +51,13 @@ jobs:
 
   integration:
     name: Integration and concurrency tests
-    # Pinned to 24.04 rather than ubuntu-latest: the latest label moved to a
-    # runner image with Linux kernel 6.19+, and mongod refuses to start on it
-    # ("MongoDB cannot start: Linux kernel versions 6.19 and newer has a known
-    # incompatibility", SERVER-121912). Move back to ubuntu-latest once a
-    # fixed mongo release is pinned below.
-    runs-on: ubuntu-24.04
+    # Pinned to 22.04 rather than ubuntu-latest. mongod 8.x crashes at startup
+    # on Linux kernels 6.19 through 7.0.13 ("MongoDB cannot start: Linux kernel
+    # versions 6.19 and newer has a known incompatibility", SERVER-121912), and
+    # both ubuntu-latest and ubuntu-24.04 runners now carry such a kernel.
+    # MongoDB's release notes name kernel 7.0.14+ as the fix; move back to
+    # ubuntu-latest once the runners have it.
+    runs-on: ubuntu-22.04
 
     services:
       redis:
@@ -86,6 +87,7 @@ jobs:
       # deliberately.
       - name: Start MongoDB as a single-node replica set
         run: |
+          uname -r
           docker run -d --name mongo -p 27017:27017 \
             mongo:8@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff \
             --replSet rs0 --bind_ip_all
