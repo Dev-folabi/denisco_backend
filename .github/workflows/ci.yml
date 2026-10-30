@@ -75,9 +75,15 @@ jobs:
       # The suite exercises multi-document transactions, which need a replica
       # set; a standalone mongod would skip the half of it that matters. A
       # single-node set is enough and starts in seconds.
+      #
+      # The image is pinned by digest. The floating mongo:8 tag moved on
+      # 2026-10-30 to an image whose mongod exited at startup, which failed
+      # this job before a single test ran; this digest is the one the last
+      # green run (2026-10-25) pulled. Bump it deliberately, not by accident.
       - name: Start MongoDB as a single-node replica set
         run: |
-          docker run -d --name mongo -p 27017:27017 mongo:8 \
+          docker run -d --name mongo -p 27017:27017 \
+            mongo:8@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff \
             --replSet rs0 --bind_ip_all
 
           for _ in $(seq 1 60); do
@@ -98,6 +104,11 @@ jobs:
             fi
             sleep 1
           done
+
+      # A container that exits at startup says why only in its own log.
+      - name: MongoDB container log
+        if: failure()
+        run: docker logs mongo || true
 
       - name: Integration tests
         env:
